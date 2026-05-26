@@ -28,6 +28,10 @@ body { background: var(--bg); color: var(--text); font-family: -apple-system, Bl
 .logo { font-size: 14px; font-weight: 700; color: var(--text); }
 .date-badge { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; color: var(--muted); }
 .stat-pills { display: flex; gap: 6px; margin-left: 8px; }
+.tab-nav { display: flex; gap: 4px; margin-left: 20px; }
+.tab-btn { font-size: 12px; padding: 4px 14px; border-radius: 6px; border: 1px solid transparent; color: var(--muted); cursor: pointer; background: none; transition: all .15s; }
+.tab-btn:hover { color: var(--text); background: var(--surface2); }
+.tab-btn.active { color: var(--accent); background: rgba(108,142,246,.12); border-color: rgba(108,142,246,.3); }
 .pill { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); }
 .pill-blue { color: var(--accent); }
 .pill-green { color: var(--green); }
@@ -155,6 +159,49 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* Summary view */
+.view-summary { display: none; flex: 1; overflow-y: auto; padding: 28px 32px; }
+.view-summary.active { display: block; }
+.view-tenders { display: flex; flex: 1; overflow: hidden; }
+.view-tenders.hidden { display: none; }
+.summary-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 14px; margin-top: 32px; }
+.summary-section-title:first-child { margin-top: 0; }
+.niche-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; margin-bottom: 8px; }
+.niche-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; transition: border-color .15s; }
+.niche-card:hover { border-color: rgba(108,142,246,.4); }
+.niche-card.priority-1 { border-color: rgba(52,211,153,.25); }
+.niche-card.priority-2 { border-color: rgba(108,142,246,.25); }
+.niche-card.priority-3 { border-color: rgba(251,191,36,.2); }
+.niche-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
+.niche-card-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.niche-card-badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; font-weight: 600; }
+.badge-enter { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.3); }
+.badge-partner { background: rgba(251,191,36,.12); color: var(--yellow); border: 1px solid rgba(251,191,36,.25); }
+.badge-careful { background: rgba(248,113,113,.1); color: var(--red); border: 1px solid rgba(248,113,113,.2); }
+.niche-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.metric { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+.metric-k { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.metric-v { font-size: 15px; font-weight: 700; color: var(--text); }
+.metric-v.green { color: var(--green); }
+.metric-v.accent { color: var(--accent); }
+.metric-v.yellow { color: var(--yellow); }
+.reuse-bar { display: flex; gap: 4px; align-items: center; margin-bottom: 12px; }
+.reuse-bar-label { font-size: 10px; color: var(--muted); width: 44px; }
+.reuse-seg { height: 6px; border-radius: 3px; }
+.reuse-seg.high { background: var(--green); }
+.reuse-seg.medium { background: var(--yellow); }
+.reuse-seg.low { background: var(--red); opacity: .5; }
+.reuse-counts { font-size: 10px; color: var(--muted); margin-left: 6px; }
+.niche-insight { font-size: 12px; color: var(--muted2); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 10px; }
+.niche-entry { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.niche-entry strong { color: var(--accent2); }
+.strategy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.strategy-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.strategy-step { font-size: 20px; font-weight: 800; color: var(--border); margin-bottom: 8px; }
+.strategy-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.strategy-body { font-size: 12px; color: var(--muted2); line-height: 1.6; }
+.summary-note { font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-top: 14px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -166,9 +213,14 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
     <span class="pill pill-green" id="statAnalyzed">—</span>
     <span class="pill pill-purple" id="statBudget">—</span>
   </div>
+  <div class="tab-nav">
+    <button class="tab-btn active" id="tabTenders" onclick="switchTab('tenders')">Тендеры</button>
+    <button class="tab-btn" id="tabSummary" onclick="switchTab('summary')">Аналитика</button>
+  </div>
 </div>
 
 <div class="layout">
+  <div class="view-tenders" id="viewTenders">
   <aside class="sidebar">
     <div class="sidebar-section">
       <div class="section-label">Поиск</div>
@@ -215,7 +267,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
     </div>
   </aside>
 
-  <div class="content">
+  <div class="content" style="overflow:hidden;display:flex;flex-direction:column;flex:1;">
     <div class="toolbar">
       <span class="result-count" id="resultCount">—</span>
     </div>
@@ -238,6 +290,8 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
       </table>
     </div>
   </div>
+  </div><!-- /view-tenders -->
+  <div class="view-summary" id="viewSummary"></div>
 </div>
 
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
@@ -556,6 +610,132 @@ function closePanel() {
 }
 
 init().catch(console.error);
+
+function switchTab(tab) {
+  document.getElementById('tabTenders').classList.toggle('active', tab === 'tenders');
+  document.getElementById('tabSummary').classList.toggle('active', tab === 'summary');
+  document.getElementById('viewTenders').classList.toggle('hidden', tab !== 'tenders');
+  document.getElementById('viewSummary').classList.toggle('active', tab === 'summary');
+  if (tab === 'summary') buildSummary();
+}
+
+const CAT_META = {
+  enterprise_rag_llm_assistant: {
+    label: 'RAG / LLM-помощник', priority: 1,
+    badge: 'Войти сейчас', badgeCls: 'badge-enter',
+    insight: 'Все 61 тендер имеют высокую или среднюю повторяемость — нет ни одного низкого. Концентрация в Москве и Московской области. Один продукт закрывает большинство потребностей.',
+    entry: 'Secure RAG на отечественном LLM + закрытый контур + чат с документами + API для портала',
+  },
+  analytics_monitoring: {
+    label: 'Аналитика и мониторинг', priority: 2,
+    badge: 'Войти сейчас', badgeCls: 'badge-enter',
+    insight: 'Нет ни одного low reuse. Заказчики — ситуационные центры, муниципалитеты, госорганы. Продаётся как годовое обслуживание с контент-анализом и дашбордом.',
+    entry: 'Платформа контент-анализа + дашборд + классификация источников + отчёты',
+  },
+  medical_ai_support: {
+    label: 'Medical AI — сопровождение', priority: 3,
+    badge: 'Через партнёра', badgeCls: 'badge-partner',
+    insight: 'Самый объёмный рынок — 151 тендер, 1.3 млрд руб. Большинство тендеров — ежегодная техподдержка уже внедрённых СППВР-систем, не разработка.',
+    entry: 'Партнёрство с Webiomed / botkin.ai → сопровождение + интеграция как субподрядчик',
+  },
+  computer_vision: {
+    label: 'Computer Vision', priority: 4,
+    badge: 'Если есть продукт', badgeCls: 'badge-careful',
+    insight: 'Большой рынок, но медиана низкая. Большинство — обслуживание уже установленных систем. Хардварная зависимость и лицензии на критическую инфраструктуру.',
+    entry: 'Подходит если уже есть CV-продукт; иначе порог входа высок',
+  },
+  process_automation: {
+    label: 'Автоматизация процессов', priority: 5,
+    badge: 'Нишевой вход', badgeCls: 'badge-partner',
+    insight: 'Немного тендеров, но есть RPА-платформы (PIX, Robin) с ежегодным сопровождением. Хорошая точка входа для небольших команд.',
+    entry: 'Сопровождение RPA-платформы или своя автоматизация одного повторяемого процесса',
+  },
+};
+
+function buildSummary() {
+  const el = document.getElementById('viewSummary');
+
+  const cats = {};
+  for (const t of all) {
+    const cat = t.product_category;
+    if (!cat || !CAT_META[cat]) continue;
+    if (!cats[cat]) cats[cat] = { count: 0, budgets: [], reuse: { high: 0, medium: 0, low: 0 }, withDocs: 0 };
+    cats[cat].count++;
+    const b = Number(t.budget_rub);
+    if (b > 0) cats[cat].budgets.push(b);
+    if (t.reuse_score) cats[cat].reuse[t.reuse_score] = (cats[cat].reuse[t.reuse_score] || 0) + 1;
+    if (t.evidence_files && t.evidence_files !== 'info_text') cats[cat].withDocs++;
+  }
+
+  const cards = Object.entries(cats)
+    .sort((a, b) => (CAT_META[a[0]]?.priority || 9) - (CAT_META[b[0]]?.priority || 9))
+    .map(([cat, d]) => {
+      const meta = CAT_META[cat];
+      const sorted = [...d.budgets].sort((a, b) => a - b);
+      const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+      const total = sorted.reduce((a, b) => a + b, 0);
+      const totalReuse = d.reuse.high + d.reuse.medium + d.reuse.low;
+      const barTotal = Math.max(totalReuse, 1);
+      const highW = Math.round(d.reuse.high / barTotal * 100);
+      const medW = Math.round(d.reuse.medium / barTotal * 100);
+      const lowW = 100 - highW - medW;
+
+      return `<div class="niche-card priority-${meta.priority}">
+        <div class="niche-card-header">
+          <div class="niche-card-title">${meta.label}</div>
+          <span class="niche-card-badge ${meta.badgeCls}">${meta.badge}</span>
+        </div>
+        <div class="niche-metrics">
+          <div class="metric"><div class="metric-k">Тендеров</div><div class="metric-v accent">${d.count}</div></div>
+          <div class="metric"><div class="metric-k">Медиана</div><div class="metric-v green">${fmtBig(median)}</div></div>
+          <div class="metric"><div class="metric-k">Итого</div><div class="metric-v">${fmtBig(total)}</div></div>
+        </div>
+        <div class="reuse-bar">
+          <span class="reuse-bar-label">Reuse</span>
+          <div style="flex:1;display:flex;gap:2px;height:6px;">
+            ${highW ? `<div class="reuse-seg high" style="width:${highW}%"></div>` : ''}
+            ${medW ? `<div class="reuse-seg medium" style="width:${medW}%"></div>` : ''}
+            ${lowW > 0 ? `<div class="reuse-seg low" style="width:${lowW}%"></div>` : ''}
+          </div>
+          <span class="reuse-counts">H:${d.reuse.high} M:${d.reuse.medium} L:${d.reuse.low || 0}</span>
+        </div>
+        <div class="niche-insight">${meta.insight}
+          <div class="niche-entry"><strong>Вход:</strong> ${meta.entry}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+  el.innerHTML = `
+    <div class="summary-section-title">Приоритет ниш для входа</div>
+    <div class="niche-grid">${cards}</div>
+
+    <div class="summary-section-title">Стратегия при ограниченном бюджете</div>
+    <div class="strategy-grid">
+      <div class="strategy-card">
+        <div class="strategy-step">01</div>
+        <div class="strategy-title">Партнёрство с медицинским AI-вендором</div>
+        <div class="strategy-body">Договориться о реселлинге с Webiomed или botkin.ai. 54 тендера до 3M руб, 20 из них — до 500K. Не требует разработки — только SLA и акты.</div>
+      </div>
+      <div class="strategy-card">
+        <div class="strategy-step">02</div>
+        <div class="strategy-title">Первые 1–2 тендера на сопровождение</div>
+        <div class="strategy-body">Выиграть небольшие контракты до 1M как техподдержка. Крупные игроки не берутся за малые контракты — конкуренция минимальна.</div>
+      </div>
+      <div class="strategy-card">
+        <div class="strategy-step">03</div>
+        <div class="strategy-title">Референс → аналитика/мониторинг</div>
+        <div class="strategy-body">С 1–2 кейсами заходить в аналитику (медиана 5.4M). Там 10 тендеров до 3M — хороший трамплин с реальными деньгами.</div>
+      </div>
+      <div class="strategy-card">
+        <div class="strategy-step">04</div>
+        <div class="strategy-title">Масштаб → RAG/LLM</div>
+        <div class="strategy-body">Имея репутацию — идти в RAG/LLM (медиана 8M, 100% high/medium reuse). Москва и МО дают плотный рынок для быстрого роста.</div>
+      </div>
+    </div>
+
+    <div class="summary-note">Данные собраны 25 мая 2026 · ${all.length} тендеров · период публикации: март 2025 — май 2026</div>
+  `;
+}
 </script>
 </body>
 </html>
