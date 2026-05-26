@@ -166,16 +166,27 @@ function classifyProduct(t, text, modules, aiTerms) {
   if (hasAny(combined, ['антикартель', 'dbscan', 'ограничивающих конкуренцию'])) {
     return 'gov_regulatory_analytics';
   }
-  if (hasAny(combined, ['llm', 'большая языковая модель', 'rag', 'база знаний', 'чат-бот', 'интеллектуальный помощник'])) {
-    return 'enterprise_rag_llm_assistant';
-  }
-  if (hasAny(combined, ['маммограф', 'dicom', 'медицинск', 'здравоохран', 'пациент', 'лабораторн'])) {
-    return 'medical_ai_support';
-  }
-  if (hasAny(combined, ['компьютерн', 'изображени', 'видеонаблюдени', 'распознаван'])) {
+  if (hasAny(name, ['фотовидеофиксаци', 'видеофиксаци', 'распознавани', 'компьютерное зрение', 'dicom', 'маммограф'])) {
     return 'computer_vision';
   }
-  if (hasAny(combined, ['контент-анализ', 'аналитическ', 'мониторинг', 'сбор', 'обработк'])) {
+  if (
+    hasAny(combined, ['маммограф', 'dicom', 'пациент'])
+    || (hasAny(combined, ['медицинск', 'здравоохран', 'лабораторн'])
+        && hasAny(combined, ['искусственн', 'нейросет', 'диагностик', 'поддержки принятия', 'клинических решени', 'lims', 'ehr', 'emr']))
+  ) {
+    return 'medical_ai_support';
+  }
+  if (
+    hasWord(combined, 'llm') || hasWord(combined, 'rag')
+    || hasAny(combined, ['большая языковая модель', 'база знаний', 'чат-бот', 'интеллектуальный помощник'])
+  ) {
+    return 'enterprise_rag_llm_assistant';
+  }
+  if (hasAny(combined, ['компьютерное зрение', 'обработка изображени', 'анализ изображени', 'распознавани изображени', 'видеонаблюдени', 'распознаван'])) {
+    return 'computer_vision';
+  }
+  if (hasAny(combined, ['контент-анализ', 'аналитическ'])
+    || (combined.includes('мониторинг') && !combined.includes('мониторинг цен'))) {
     return 'analytics_monitoring';
   }
   if (modules.includes('process_automation') || hasAny(combined, ['автоматизация процессов', 'бизнес-процесс'])) {
@@ -285,10 +296,10 @@ function titleFor(productCategory, t) {
 
 function findModules(text) {
   const checks = [
-    ['rag', ['rag', 'retrieval augmented', 'база знаний', 'векторн', 'эмбеддинг']],
-    ['llm_pipeline', ['пайплайн', 'промпт', 'большая языковая модель', 'llm']],
+    ['rag', ['retrieval augmented', 'база знаний', 'векторн', 'эмбеддинг']],
+    ['llm_pipeline', ['пайплайн', 'промпт', 'большая языковая модель']],
     ['chat_ui', ['чат', 'чат-бот', 'диалог', 'мессенджер']],
-    ['document_ai', ['анализ документов', 'суммаризац', 'извлечение фактов', 'классификац', 'сравнение документов']],
+    ['document_ai', ['анализ документов', 'суммаризац', 'извлечение фактов', 'классификация документов', 'классификация обращений', 'автоматическая классификац', 'сравнение документов']],
     ['integration', ['интеграц', 'api', 'sdk', 'информационное взаимодействие']],
     ['knowledge_base', ['база знаний']],
     ['monitoring_support', ['мониторинг', 'техническая поддержка', 'сопровожд', 'эксплуатац']],
@@ -297,7 +308,10 @@ function findModules(text) {
     ['process_automation', ['автоматизация процессов', 'бизнес-процесс', 'workflow']],
     ['computer_vision', ['dicom', 'маммограф', 'снимк', 'видеонаблюд', 'компьютерное зрение']],
   ];
-  return checks.filter(([, terms]) => hasAny(text, terms)).map(([name]) => name);
+  const modules = checks.filter(([, terms]) => hasAny(text, terms)).map(([name]) => name);
+  if (hasWord(text, 'rag') && !modules.includes('rag')) modules.push('rag');
+  if (hasWord(text, 'llm') && !modules.includes('llm_pipeline')) modules.push('llm_pipeline');
+  return modules;
 }
 
 function findIntegrations(text) {
@@ -341,7 +355,11 @@ function buildEvidence(text) {
 }
 
 function findTerms(text, terms) {
-  return terms.filter(t => text.includes(t.toLowerCase()));
+  return terms.filter(term => {
+    const t = term.toLowerCase();
+    if (/^[a-z]{2,4}$/.test(t)) return hasWord(text, t);
+    return text.includes(t);
+  });
 }
 
 function sectionLines(text, headings) {
@@ -460,6 +478,10 @@ function bulletList(items) {
 
 function hasAny(text, terms) {
   return terms.some(t => text.includes(t.toLowerCase()));
+}
+
+function hasWord(text, word) {
+  return new RegExp(`(?<![a-zа-я])${word}(?![a-zа-я])`, 'i').test(text);
 }
 
 function safeName(v) {

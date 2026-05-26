@@ -144,19 +144,37 @@ function classifyProduct(tender, text, modules, aiTerms) {
     return 'gov_regulatory_analytics';
   }
 
-  if (hasAny(combined, ['llm', 'большая языковая модель', 'rag', 'база знаний', 'чат-бот', 'интеллектуальный помощник'])) {
-    return 'enterprise_rag_llm_assistant';
-  }
-
-  if (hasAny(combined, ['маммограф', 'dicom', 'медицинск', 'здравоохран', 'пациент', 'лабораторн'])) {
-    return 'medical_ai_support';
-  }
-
-  if (hasAny(combined, ['компьютерн', 'изображени', 'видеонаблюдени', 'распознаван'])) {
+  // CV checked before RAG/LLM — strong name-level signals take priority
+  if (hasAny(name, ['фотовидеофиксаци', 'видеофиксаци', 'распознавани', 'компьютерное зрение', 'dicom', 'маммограф'])) {
     return 'computer_vision';
   }
 
-  if (hasAny(combined, ['контент-анализ', 'аналитическ', 'мониторинг', 'сбор', 'обработк'])) {
+  // Medical: require at least one AI signal alongside medical term to avoid false positives on physical goods
+  if (
+    hasAny(combined, ['маммограф', 'dicom', 'пациент'])
+    || (hasAny(combined, ['медицинск', 'здравоохран', 'лабораторн'])
+        && hasAny(combined, ['искусственн', 'нейросет', 'диагностик', 'поддержки принятия', 'клинических решени', 'lims', 'ehr', 'emr']))
+  ) {
+    return 'medical_ai_support';
+  }
+
+  // Use word-boundary match for short terms to avoid substring false positives (e.g. load_amperage → rag)
+  if (
+    hasWord(combined, 'llm') || hasWord(combined, 'rag')
+    || hasAny(combined, ['большая языковая модель', 'база знаний', 'чат-бот', 'интеллектуальный помощник'])
+  ) {
+    return 'enterprise_rag_llm_assistant';
+  }
+
+  // 'компьютерн' removed — matches OKPD2 "разработка компьютерного ПО"; 'изображени' narrowed — matches monitors/TVs
+  if (hasAny(combined, ['компьютерное зрение', 'обработка изображени', 'анализ изображени', 'распознавани изображени', 'видеонаблюдени', 'распознаван'])) {
+    return 'computer_vision';
+  }
+
+  // 'сбор' and 'обработк' removed — too generic (standard procurement boilerplate)
+  // 'мониторинг' kept but only when not about price monitoring
+  if (hasAny(combined, ['контент-анализ', 'аналитическ'])
+    || (combined.includes('мониторинг') && !combined.includes('мониторинг цен'))) {
     return 'analytics_monitoring';
   }
 
@@ -281,15 +299,15 @@ function titleFor(productCategory, tender) {
 function findModules(text) {
   const modules = [];
   const checks = [
-    ['rag', ['rag', 'retrieval augmented', 'база знаний', 'векторн', 'эмбеддинг']],
-    ['llm_pipeline', ['пайплайн', 'промпт', 'большая языковая модель', 'llm']],
+    ['rag', ['retrieval augmented', 'база знаний', 'векторн', 'эмбеддинг']], // 'rag' checked below with word boundary
+    ['llm_pipeline', ['пайплайн', 'промпт', 'большая языковая модель']], // 'llm' checked below
     ['chat_ui', ['чат', 'чат-бот', 'диалог', 'мессенджер']],
-    ['document_ai', ['анализ документов', 'суммаризац', 'извлечение фактов', 'классификац', 'сравнение документов']],
+    ['document_ai', ['анализ документов', 'суммаризац', 'извлечение фактов', 'классификация документов', 'классификация обращений', 'автоматическая классификац', 'сравнение документов']],
     ['integration', ['интеграц', 'api', 'sdk', 'информационное взаимодействие']],
     ['knowledge_base', ['база знаний', 'документы базы знаний']],
     ['monitoring_support', ['мониторинг', 'техническая поддержка', 'сопровожд', 'эксплуатац']],
     ['information_security', ['информационной безопасности', 'защита информации', 'скзи', 'vipnet']],
-    ['on_prem_llm', ['закрытом контуре', 'без обращения в интернет', 'серверн', 'gpu']],
+    ['on_prem_llm', ['закрытом контуре', 'без обращения в интернет', 'gpu']],
     ['process_automation', ['автоматизация процессов', 'бизнес-процесс', 'workflow']],
     ['computer_vision', ['dicom', 'маммограф', 'снимк', 'видеонаблюд', 'компьютерное зрение']],
   ];
@@ -297,6 +315,8 @@ function findModules(text) {
   for (const [name, terms] of checks) {
     if (hasAny(text, terms)) modules.push(name);
   }
+  if (hasWord(text, 'rag') && !modules.includes('rag')) modules.push('rag');
+  if (hasWord(text, 'llm') && !modules.includes('llm_pipeline')) modules.push('llm_pipeline');
 
   return modules;
 }
@@ -356,7 +376,12 @@ function findScenarios(text) {
 }
 
 function findTerms(text, terms) {
-  return terms.filter((term) => text.includes(term.toLowerCase()));
+  return terms.filter((term) => {
+    const t = term.toLowerCase();
+    // Short English terms checked with word boundary to avoid substring matches
+    if (/^[a-z]{2,4}$/.test(t)) return hasWord(text, t);
+    return text.includes(t);
+  });
 }
 
 function buildEvidence(text) {
@@ -607,6 +632,11 @@ function firstMeaningfulLine(text) {
 
 function hasAny(text, terms) {
   return terms.some((term) => text.includes(term.toLowerCase()));
+}
+
+// Word-boundary match for short/ambiguous terms (rag, llm, api, sdk)
+function hasWord(text, word) {
+  return new RegExp(`(?<![a-zа-я])${word}(?![a-zа-я])`, 'i').test(text);
 }
 
 function safeName(value) {
