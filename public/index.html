@@ -258,8 +258,8 @@ let activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, se
 
 async function init() {
   const [meta, tenders] = await Promise.all([
-    fetch('/api/meta').then(r => r.json()),
-    fetch('/api/tenders').then(r => r.json()),
+    fetch('data/meta.json').then(r => r.json()),
+    fetch('data/tenders.json').then(r => r.json()),
   ]);
   document.getElementById('dateBadge').textContent = meta.date;
   all = tenders;
@@ -439,7 +439,7 @@ async function openPanel(tenderId) {
 
   if (t?.has_card) {
     try {
-      const md = await fetch(`/api/card/${encodeURIComponent(tenderId)}`).then(r => r.text());
+      const md = await fetch(`data/cards/${encodeURIComponent(tenderId)}.md`).then(r => r.text());
       document.getElementById('panelBody').innerHTML = renderMetaBox(t) + (links.length ? `<div class="links-row">${links.join('')}</div>` : '') + renderMd(md);
     } catch {
       document.getElementById('panelBody').innerHTML = renderMetaBox(t) + '<div class="no-card-notice">Карточка не найдена</div>';

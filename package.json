@@ -10,7 +10,8 @@
     "analyze-docs": "node scripts/analyze-tender-docs.js",
     "dashboard": "node scripts/serve-analysis.js",
     "analyze-info": "node scripts/analyze-info-text.js",
-    "patch-cards": "node scripts/patch-cards-add-info.js"
+    "patch-cards": "node scripts/patch-cards-add-info.js",
+    "build": "node scripts/build-static.js"
   },
   "engines": {
     "node": ">=18"
