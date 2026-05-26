@@ -1,0 +1,12 @@
+# Secrets
+.env
+
+# Raw API responses and downloaded docs (274 MB)
+data/raw/
+
+# Node
+node_modules/
+
+# OS / tools
+.DS_Store
+.playwright-mcp/

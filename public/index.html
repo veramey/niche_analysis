@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TenderGuru — AI Market</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f1117;
+  --surface: #16181f;
+  --surface2: #1e2130;
+  --border: #2a2d3e;
+  --accent: #6c8ef6;
+  --accent2: #a78bfa;
+  --green: #34d399;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --muted2: #94a3b8;
+  --radius: 8px;
+}
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+
+/* Topbar */
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+.logo { font-size: 14px; font-weight: 700; color: var(--text); }
+.date-badge { font-size: 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 2px 8px; color: var(--muted); }
+.stat-pills { display: flex; gap: 6px; margin-left: 8px; }
+.pill { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--border); }
+.pill-blue { color: var(--accent); }
+.pill-green { color: var(--green); }
+.pill-purple { color: var(--accent2); }
+
+/* Layout */
+.layout { display: flex; height: calc(100vh - 45px); overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 220px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+.sidebar-section { display: flex; flex-direction: column; gap: 6px; }
+.section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+
+.filter-group { display: flex; flex-direction: column; gap: 3px; }
+.filter-item { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: 5px; cursor: pointer; border: 1px solid transparent; transition: all .12s; }
+.filter-item:hover { background: var(--surface2); }
+.filter-item.active { background: rgba(108,142,246,.12); border-color: rgba(108,142,246,.3); color: var(--accent); }
+.filter-item .fi-name { font-size: 12px; }
+.filter-item .fi-cnt { font-size: 11px; color: var(--muted); }
+.filter-item.active .fi-cnt { color: var(--accent); opacity: .7; }
+
+.search-box { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; color: var(--text); font-size: 12px; outline: none; }
+.search-box:focus { border-color: var(--accent); }
+
+.sort-sel { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; color: var(--text); font-size: 12px; outline: none; cursor: pointer; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+.toggle-row span { font-size: 12px; color: var(--muted2); }
+.toggle { position: relative; width: 30px; height: 16px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 10px; cursor: pointer; transition: .2s; }
+.toggle input:checked + .toggle-slider { background: var(--accent); }
+.toggle-slider::before { content: ''; position: absolute; width: 12px; height: 12px; left: 2px; top: 2px; background: #fff; border-radius: 50%; transition: .2s; }
+.toggle input:checked + .toggle-slider::before { transform: translateX(14px); }
+
+/* Main content */
+.content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { padding: 8px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.result-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+
+/* Table */
+.table-wrap { flex: 1; overflow: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead { position: sticky; top: 0; z-index: 10; }
+thead th { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); white-space: nowrap; cursor: pointer; user-select: none; }
+thead th:hover { color: var(--text); }
+thead th .sort-icon { margin-left: 4px; opacity: .4; }
+thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+tbody tr:hover { background: var(--surface2); }
+tbody tr.analyzed { border-left: 2px solid var(--accent); }
+tbody td { padding: 8px 10px; vertical-align: middle; }
+
+.col-name { max-width: 260px; }
+.name-main { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.name-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; margin-top: 1px; }
+
+.budget-cell { font-weight: 600; white-space: nowrap; }
+.budget-big { color: var(--green); }
+.budget-mid { color: var(--yellow); }
+.budget-small { color: var(--muted2); }
+.budget-none { color: var(--muted); }
+
+.tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 500; white-space: nowrap; }
+.tag-niche { background: #1e2d5a22; border: 1px solid #1e3a8a44; color: #93c5fd; }
+.tag-cat { background: #2d1f4a22; border: 1px solid #4c1d9544; color: #c4b5fd; }
+.reuse-high { color: var(--green); font-weight: 600; }
+.reuse-medium { color: var(--yellow); }
+.reuse-low { color: var(--muted); }
+.dot-analyzed { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+.dot-empty { width: 6px; height: 6px; border-radius: 50%; background: var(--border); display: inline-block; }
+
+.region-cell { font-size: 11px; color: var(--muted2); max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Detail panel */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 200; display: none; }
+.overlay.open { display: block; }
+.panel { position: fixed; top: 0; right: 0; width: min(700px, 100vw); height: 100vh; background: var(--surface); border-left: 1px solid var(--border); z-index: 201; display: flex; flex-direction: column; transform: translateX(100%); transition: transform .22s cubic-bezier(.4,0,.2,1); }
+.panel.open { transform: translateX(0); }
+.panel-header { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; background: var(--surface); position: sticky; top: 0; }
+.panel-title { font-size: 14px; font-weight: 700; line-height: 1.4; }
+.panel-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); padding: 3px 9px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.panel-close:hover { color: var(--text); }
+.panel-body { overflow-y: auto; padding: 16px 18px; flex: 1; }
+
+.meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.meta-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 10px 12px; }
+.meta-box .k { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: .06em; }
+.meta-box .v { font-size: 14px; font-weight: 600; margin-top: 3px; color: var(--text); }
+.meta-box .v.green { color: var(--green); }
+.meta-box .v.accent { color: var(--accent); }
+
+.links-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.ext-link { font-size: 11px; padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); color: var(--muted2); background: var(--surface2); }
+.ext-link:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Markdown */
+.md h1 { font-size: 15px; font-weight: 700; color: var(--text); margin: 16px 0 6px; }
+.md h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--accent2); margin: 14px 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.md p { font-size: 12px; color: var(--muted2); margin-bottom: 8px; line-height: 1.6; }
+.md ul { padding-left: 14px; margin-bottom: 8px; }
+.md li { font-size: 12px; color: var(--muted2); margin-bottom: 3px; line-height: 1.5; }
+.md code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-size: 11px; color: var(--accent); }
+.md strong { color: var(--text); }
+
+.no-card-notice { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.no-card-notice h3 { color: var(--text); font-size: 13px; margin-bottom: 8px; }
+.info-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.info-label { color: var(--muted); min-width: 110px; font-size: 12px; }
+.info-val { color: var(--muted2); font-size: 12px; }
+
+.info-html { font-size: 12px; color: var(--muted2); line-height: 1.7; }
+.info-html h1, .info-html h2, .info-html h3 { color: var(--text); margin: 10px 0 5px; font-size: 13px; }
+.info-html h1 { font-size: 14px; }
+.info-html p { margin-bottom: 7px; }
+.info-html strong, .info-html b { color: var(--text); font-weight: 600; }
+.info-html ul, .info-html ol { padding-left: 16px; margin-bottom: 7px; }
+.info-html li { margin-bottom: 2px; }
+.info-html table { border-collapse: collapse; width: 100%; margin-bottom: 8px; font-size: 11px; }
+.info-html td, .info-html th { border: 1px solid var(--border); padding: 4px 7px; }
+.info-html th { background: var(--surface); color: var(--text); }
+.info-html a { color: var(--accent); }
+.info-html br { display: none; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="logo">TenderGuru · AI Market</div>
+  <span class="date-badge" id="dateBadge">—</span>
+  <div class="stat-pills">
+    <span class="pill pill-blue" id="statTotal">—</span>
+    <span class="pill pill-green" id="statAnalyzed">—</span>
+    <span class="pill pill-purple" id="statBudget">—</span>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="section-label">Поиск</div>
+      <input class="search-box" id="searchInput" placeholder="Название, заказчик…">
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Сортировка</div>
+      <select class="sort-sel" id="sortSel">
+        <option value="budget_desc">Бюджет ↓</option>
+        <option value="budget_asc">Бюджет ↑</option>
+        <option value="date_desc">Дата ↓</option>
+        <option value="relevance">Релевантность ↓</option>
+        <option value="reuse">Повторяемость</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Фильтры</div>
+      <div class="toggle-row">
+        <span>Только с анализом</span>
+        <label class="toggle"><input type="checkbox" id="analyzedOnly"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Ниша</div>
+      <div class="filter-group" id="nicheFilters"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Категория продукта</div>
+      <div class="filter-group" id="catFilters"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Повторяемость</div>
+      <div class="filter-group" id="reuseFilters">
+        <div class="filter-item active" data-type="reuse" data-val=""><span class="fi-name">Все</span></div>
+        <div class="filter-item" data-type="reuse" data-val="high"><span class="fi-name reuse-high">high</span></div>
+        <div class="filter-item" data-type="reuse" data-val="medium"><span class="fi-name reuse-medium">medium</span></div>
+        <div class="filter-item" data-type="reuse" data-val="low"><span class="fi-name reuse-low">low</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="content">
+    <div class="toolbar">
+      <span class="result-count" id="resultCount">—</span>
+    </div>
+    <div class="table-wrap">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th style="width:24px"></th>
+            <th data-col="tender_name" class="sorted">Название <span class="sort-icon">↕</span></th>
+            <th data-col="customer">Заказчик <span class="sort-icon">↕</span></th>
+            <th data-col="budget_rub">Бюджет <span class="sort-icon">↕</span></th>
+            <th data-col="region">Регион <span class="sort-icon">↕</span></th>
+            <th data-col="niche">Ниша <span class="sort-icon">↕</span></th>
+            <th data-col="product_category">Категория <span class="sort-icon">↕</span></th>
+            <th data-col="reuse_score">Reuse <span class="sort-icon">↕</span></th>
+            <th data-col="date">Дата <span class="sort-icon">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"><tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<div class="panel" id="panel">
+  <div class="panel-header">
+    <div class="panel-title" id="panelTitle">—</div>
+    <button class="panel-close" onclick="closePanel()">×</button>
+  </div>
+  <div class="panel-body" id="panelBody"></div>
+</div>
+
+<script>
+const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', computer_vision:'CV', process_automation:'Автоматизация', document_ai:'Document AI', analytics:'Аналитика', ml:'ML', custom_software:'Разработка ПО', aiot:'AIoT' };
+const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис' };
+
+let all = [], filtered = [];
+let activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+
+async function init() {
+  const [meta, tenders] = await Promise.all([
+    fetch('/api/meta').then(r => r.json()),
+    fetch('/api/tenders').then(r => r.json()),
+  ]);
+  document.getElementById('dateBadge').textContent = meta.date;
+  all = tenders;
+  updateStats();
+  buildSidebarFilters();
+  applyFilters();
+  setupListeners();
+}
+
+function updateStats() {
+  const total = all.length;
+  const analyzed = all.filter(t => t.has_card).length;
+  const budgets = all.map(t => Number(t.budget_rub)||0).filter(b => b > 0);
+  const totalBudget = budgets.reduce((a,b) => a+b, 0);
+  document.getElementById('statTotal').textContent = `${total} тендеров`;
+  document.getElementById('statAnalyzed').textContent = `${analyzed} с анализом`;
+  document.getElementById('statBudget').textContent = fmtBig(totalBudget) + ' общий бюджет';
+}
+
+function buildSidebarFilters() {
+  const nicheCounts = countBy(all, 'niche');
+  const catCounts = countBy(all.filter(t => t.product_category), 'product_category');
+
+  document.getElementById('nicheFilters').innerHTML =
+    filterItem('niche', '', 'Все', all.length, true) +
+    Object.entries(nicheCounts).sort((a,b) => b[1]-a[1]).map(([v,c]) =>
+      filterItem('niche', v, NICHE_LABELS[v]||v, c, false)).join('');
+
+  document.getElementById('catFilters').innerHTML =
+    filterItem('cat', '', 'Все', all.filter(t=>t.has_card).length, true) +
+    Object.entries(catCounts).sort((a,b) => b[1]-a[1]).map(([v,c]) =>
+      filterItem('cat', v, CAT_LABELS[v]||v, c, false)).join('');
+}
+
+function filterItem(type, val, label, cnt, active) {
+  return `<div class="filter-item${active?' active':''}" data-type="${type}" data-val="${val}"><span class="fi-name">${label}</span><span class="fi-cnt">${cnt}</span></div>`;
+}
+
+function countBy(arr, key) {
+  const m = {};
+  arr.forEach(t => { const v = t[key]; if (v) m[v] = (m[v]||0)+1; });
+  return m;
+}
+
+function applyFilters() {
+  let list = all.slice();
+  if (onlyAnalyzed) list = list.filter(t => t.has_card);
+  if (activeNiche) list = list.filter(t => t.niche === activeNiche);
+  if (activeCat) list = list.filter(t => t.product_category === activeCat);
+  if (activeReuse) list = list.filter(t => t.reuse_score === activeReuse);
+  if (search) {
+    const q = search.toLowerCase();
+    list = list.filter(t => (t.tender_name||'').toLowerCase().includes(q) || (t.customer||'').toLowerCase().includes(q) || (t.opportunity_title||'').toLowerCase().includes(q));
+  }
+  list.sort(makeSorter(sortCol, sortDir));
+  filtered = list;
+  document.getElementById('resultCount').textContent = `${list.length} из ${all.length}`;
+  renderTable(list);
+}
+
+const REUSE_ORDER = { high: 0, medium: 1, low: 2 };
+function makeSorter(col, dir) {
+  return (a, b) => {
+    let av = a[col] || '', bv = b[col] || '';
+    if (col === 'budget_rub') return dir * ((Number(bv)||0) - (Number(av)||0));
+    if (col === 'relevance_score') return dir * ((Number(bv)||0) - (Number(av)||0));
+    if (col === 'reuse_score') return dir * ((REUSE_ORDER[av]??9) - (REUSE_ORDER[bv]??9));
+    if (col === 'date') return dir * av.localeCompare(bv);
+    return dir * av.localeCompare(bv, 'ru');
+  };
+}
+
+function renderTable(list) {
+  if (!list.length) {
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">Нет данных</td></tr>';
+    return;
+  }
+  document.getElementById('tableBody').innerHTML = list.map((t, i) => {
+    const analyzed = t.has_card ? 'analyzed' : '';
+    const dot = t.has_card ? '<span class="dot-analyzed" title="Есть анализ"></span>' : '<span class="dot-empty"></span>';
+    const name = t.opportunity_title || t.tender_name || t.tender_id;
+    const sub = t.opportunity_title && t.tender_name && t.tender_name !== t.opportunity_title ? t.tender_name : '';
+    const bCls = budgetClass(Number(t.budget_rub)||0);
+    const reuseCls = t.reuse_score ? `reuse-${t.reuse_score}` : '';
+    const niche = NICHE_LABELS[t.niche] || t.niche || '—';
+    const cat = t.product_category ? (CAT_LABELS[t.product_category] || t.product_category) : '—';
+    return `<tr class="${analyzed}" onclick="openPanel('${t.tender_id}')">
+      <td style="text-align:center">${dot}</td>
+      <td class="col-name"><div class="name-main" title="${name}">${name}</div>${sub ? `<div class="name-sub">${sub}</div>` : ''}</td>
+      <td><div class="name-sub" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.customer}">${t.customer||'—'}</div></td>
+      <td class="budget-cell ${bCls}">${fmtBudget(t.budget_rub)}</td>
+      <td class="region-cell" title="${t.region}">${t.region||'—'}</td>
+      <td><span class="tag tag-niche">${niche}</span></td>
+      <td>${t.product_category ? `<span class="tag tag-cat">${cat}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      <td class="${reuseCls}">${t.reuse_score||'—'}</td>
+      <td style="color:var(--muted);font-size:11px;white-space:nowrap">${t.date||'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function budgetClass(n) {
+  if (!n) return 'budget-none';
+  if (n >= 50e6) return 'budget-big';
+  if (n >= 5e6) return 'budget-mid';
+  return 'budget-small';
+}
+
+function fmtBudget(n) {
+  n = Number(n)||0;
+  if (!n) return '—';
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B ₽';
+  if (n >= 1e6) return Math.round(n/1e6)+'M ₽';
+  if (n >= 1e3) return Math.round(n/1e3)+'K ₽';
+  return n+' ₽';
+}
+
+function fmtBig(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1)+'B';
+  if (n >= 1e6) return Math.round(n/1e6)+'M';
+  return n;
+}
+
+function setupListeners() {
+  document.getElementById('searchInput').addEventListener('input', e => { search = e.target.value; applyFilters(); });
+  document.getElementById('sortSel').addEventListener('change', e => {
+    const v = e.target.value;
+    if (v === 'budget_desc') { sortCol = 'budget_rub'; sortDir = -1; }
+    else if (v === 'budget_asc') { sortCol = 'budget_rub'; sortDir = 1; }
+    else if (v === 'date_desc') { sortCol = 'date'; sortDir = -1; }
+    else if (v === 'relevance') { sortCol = 'relevance_score'; sortDir = -1; }
+    else if (v === 'reuse') { sortCol = 'reuse_score'; sortDir = 1; }
+    applyFilters();
+  });
+  document.getElementById('analyzedOnly').addEventListener('change', e => { onlyAnalyzed = e.target.checked; applyFilters(); });
+
+  document.addEventListener('click', e => {
+    const fi = e.target.closest('.filter-item[data-type]');
+    if (!fi) return;
+    const { type, val } = fi.dataset;
+    if (type === 'niche') {
+      activeNiche = val;
+      document.querySelectorAll('[data-type="niche"]').forEach(el => el.classList.toggle('active', el.dataset.val === val));
+    } else if (type === 'cat') {
+      activeCat = val;
+      document.querySelectorAll('[data-type="cat"]').forEach(el => el.classList.toggle('active', el.dataset.val === val));
+    } else if (type === 'reuse') {
+      activeReuse = val;
+      document.querySelectorAll('[data-type="reuse"]').forEach(el => el.classList.toggle('active', el.dataset.val === val));
+    }
+    applyFilters();
+  });
+
+  document.querySelectorAll('thead th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = -1; }
+      document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+      th.classList.add('sorted');
+      applyFilters();
+    });
+  });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
+}
+
+async function openPanel(tenderId) {
+  const t = all.find(x => x.tender_id === tenderId);
+  document.getElementById('panelTitle').textContent = t?.opportunity_title || t?.tender_name || tenderId;
+  document.getElementById('panelBody').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</div>';
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+
+  const links = [];
+  const eisHref = t?.eis_link || (t?.tender_link && t.tender_link !== '-' && t.tender_link.startsWith('http') ? t.tender_link : '');
+  if (eisHref) links.push(`<a class="ext-link" href="${eisHref}" target="_blank">ЕИС ↗</a>`);
+  if (t?.tenderguru_link) links.push(`<a class="ext-link" href="${t.tenderguru_link}" target="_blank">TenderGuru ↗</a>`);
+
+  if (t?.has_card) {
+    try {
+      const md = await fetch(`/api/card/${encodeURIComponent(tenderId)}`).then(r => r.text());
+      document.getElementById('panelBody').innerHTML = renderMetaBox(t) + (links.length ? `<div class="links-row">${links.join('')}</div>` : '') + renderMd(md);
+    } catch {
+      document.getElementById('panelBody').innerHTML = renderMetaBox(t) + '<div class="no-card-notice">Карточка не найдена</div>';
+    }
+  } else {
+    document.getElementById('panelBody').innerHTML = renderMetaBox(t) + (links.length ? `<div class="links-row">${links.join('')}</div>` : '') + renderBaseInfo(t);
+    // Inject raw HTML for description after setting innerHTML
+    const infoEl = document.querySelector('#panelBody .info-html[data-html]');
+    if (infoEl && t.info_text) infoEl.innerHTML = sanitizeHtml(decodeEntities(t.info_text));
+  }
+}
+
+function renderMetaBox(t) {
+  return `<div class="meta-grid">
+    <div class="meta-box"><div class="k">Бюджет</div><div class="v green">${fmtBudget(t.budget_rub)}</div></div>
+    <div class="meta-box"><div class="k">ФЗ</div><div class="v">${t.fz||'—'}</div></div>
+    <div class="meta-box"><div class="k">Регион</div><div class="v accent" style="font-size:11px">${t.region||'—'}</div></div>
+    ${t.reuse_score ? `<div class="meta-box"><div class="k">Повторяемость</div><div class="v">${t.reuse_score}</div></div>` : ''}
+    ${t.complexity ? `<div class="meta-box"><div class="k">Сложность</div><div class="v">${t.complexity}</div></div>` : ''}
+    <div class="meta-box"><div class="k">ID</div><div class="v" style="font-size:11px;color:var(--muted)">${t.tender_id}</div></div>
+  </div>`;
+}
+
+function renderBaseInfo(t) {
+  const infoText = t.info_text || '';
+  const products = (t.products_text || '').split(' | ').filter(Boolean);
+  const docLinks = (t.doc_links || '').split(/\s*\|\s*/).filter(u => u.startsWith('http'));
+
+  const metaRows = [
+    ['Заказчик', t.customer],
+    ['ИНН заказчика', t.customer_inn],
+    ['Контакт', [t.contact_name, t.contact_email, t.contact_phone].filter(Boolean).join(' · ')],
+    ['Номер тендера', t.tender_num],
+    ['Тип тендера', t.tender_type],
+    ['ЭТП', t.etp],
+    ['Дата размещения', t.date],
+    ['Срок подачи', t.end_time || t.request_end_date],
+    ['Дата торгов', t.bidding_date],
+    ['НМЦ (ob_price)', t.ob_price ? fmtBudget(t.ob_price) : ''],
+    ['Место поставки', t.delivery_place],
+    ['Срок поставки', t.delivery_term],
+    ['МСП', t.smp],
+    ['Ключевые слова', t.matched_terms],
+    ['Причина отбора', t.reason],
+    ['Статус документов', t.docs_status],
+  ].filter(([,v]) => v);
+
+  const realEtpLink = t.etp_link && t.etp_link.startsWith('http') && !t.etp_link.includes('tenderguru') ? t.etp_link : '';
+  const extLinks = [
+    t.eis_link && `<a class="ext-link" href="${t.eis_link}" target="_blank">ЕИС ↗</a>`,
+    realEtpLink && `<a class="ext-link" href="${realEtpLink}" target="_blank">ЭТП ↗</a>`,
+    t.zakaz_link && t.zakaz_link.startsWith('http') && `<a class="ext-link" href="${t.zakaz_link}" target="_blank">Заказ ↗</a>`,
+  ].filter(Boolean);
+
+  return `
+    ${extLinks.length ? `<div class="links-row" style="margin-bottom:12px">${extLinks.join('')}</div>` : ''}
+
+    ${infoText ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:14px;margin-bottom:12px">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;margin-bottom:8px">Описание тендера</div>
+      <div class="info-html" data-html="1"></div>
+    </div>` : ''}
+
+    ${products.length ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:14px;margin-bottom:12px">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.06em;margin-bottom:8px">Позиции закупки (${products.length})</div>
+      ${products.slice(0,10).map(p => `<div style="font-size:11px;color:var(--muted2);padding:3px 0;border-bottom:1px solid var(--border)">${p}</div>`).join('')}
+      ${products.length > 10 ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">… ещё ${products.length - 10}</div>` : ''}
+    </div>` : ''}
+
+    <div class="no-card-notice">
+      <h3>Метаданные</h3>
+      ${metaRows.map(([k,v]) => `<div class="info-row"><span class="info-label">${k}</span><span class="info-val">${v}</span></div>`).join('')}
+      ${docLinks.length ? `<div class="info-row" style="margin-top:10px;flex-direction:column;gap:4px">
+        <span class="info-label" style="margin-bottom:4px">Ссылки на документы (${docLinks.length})</span>
+        ${docLinks.slice(0,5).map(u => `<a href="${u}" target="_blank" style="font-size:11px;color:var(--accent);word-break:break-all">${u.replace(/^https?:\/\//, '').slice(0,70)}…</a>`).join('')}
+        ${docLinks.length > 5 ? `<span style="font-size:11px;color:var(--muted)">… ещё ${docLinks.length-5}</span>` : ''}
+      </div>` : ''}
+    </div>`;
+}
+
+function renderMd(md) {
+  const esc = md.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const html = esc
+    .replace(/^# .+\n/gm, '')
+    .replace(/^## (.+)$/gm, '</p><h2>$1</h2><p>')
+    .replace(/^### (.+)$/gm, '</p><h3 style="color:var(--muted2);font-size:12px;margin:10px 0 4px">$1</h3><p>')
+    .replace(/^- (.+)$/gm, '<li>$1</li>')
+    .replace(/(<li>[^]*?<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n+/g, '</p><p>');
+  return `<div class="md"><p>${html}</p></div>`;
+}
+
+function decodeEntities(str) {
+  const ta = document.createElement('textarea');
+  ta.innerHTML = str;
+  return ta.value;
+}
+
+function sanitizeHtml(raw) {
+  // Allow safe structural tags, strip scripts/styles/iframes
+  return raw
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<iframe[\s\S]*?>/gi, '')
+    .replace(/\s+on\w+="[^"]*"/gi, '')
+    .replace(/\s+on\w+='[^']*'/gi, '');
+}
+
+function closePanel() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('panel').classList.remove('open');
+}
+
+init().catch(console.error);
+</script>
+</body>
+</html>

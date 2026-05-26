@@ -1,0 +1,18 @@
+{
+  "name": "tenderguru-integration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal TenderGuru API v2.3 integration client",
+  "scripts": {
+    "tg": "node src/cli.js",
+    "smoke": "node src/cli.js get --param mode=regions --limit-output 1200",
+    "analyze-docs": "node scripts/analyze-tender-docs.js",
+    "dashboard": "node scripts/serve-analysis.js",
+    "analyze-info": "node scripts/analyze-info-text.js",
+    "patch-cards": "node scripts/patch-cards-add-info.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

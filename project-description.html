@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TenderGuru Integration</title>
+  <meta name="description" content="Подробное описание проекта TenderGuru Integration: как устроен поиск тендеров, скачивание документов, анализ текста и экспорт результатов.">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #111c36;
+      --panel: rgba(15, 23, 42, 0.78);
+      --panel-strong: rgba(15, 23, 42, 0.92);
+      --text: #e5eefc;
+      --muted: #a9b8d6;
+      --accent: #7dd3fc;
+      --accent-2: #a78bfa;
+      --border: rgba(148, 163, 184, 0.22);
+      --shadow: 0 24px 70px rgba(2, 6, 23, 0.45);
+      --radius: 20px;
+      --radius-sm: 14px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(167, 139, 250, 0.18), transparent 28%),
+        linear-gradient(180deg, #050816 0%, var(--bg) 28%, #081224 100%);
+      min-height: 100vh;
+      line-height: 1.55;
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 40px 0 56px;
+    }
+
+    .hero,
+    .card {
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(15, 23, 42, 0.8));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero {
+      border-radius: 28px;
+      padding: 36px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -80px -120px auto;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle, rgba(125, 211, 252, 0.24), transparent 68%);
+      pointer-events: none;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(125, 211, 252, 0.12);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 18px 0 12px;
+      font-size: clamp(2rem, 4vw, 3.8rem);
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+    }
+
+    .lead {
+      max-width: 68ch;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 18px;
+      margin-top: 28px;
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      padding: 20px;
+      border: 1px solid var(--border);
+      background: rgba(2, 6, 23, 0.36);
+    }
+
+    .panel h2,
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .meta {
+      display: grid;
+      gap: 12px;
+    }
+
+    .meta-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .meta-item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .meta-value {
+      text-align: right;
+      font-weight: 600;
+    }
+
+    .section {
+      margin-top: 22px;
+      padding: 22px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .step,
+    .file,
+    .command,
+    .env {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--panel-strong);
+      padding: 18px;
+    }
+
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #07111f;
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .step h3,
+    .file h3,
+    .command h3,
+    .env h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+      font-size: 0.92rem;
+    }
+
+    pre {
+      margin: 0;
+      padding: 14px 16px;
+      border-radius: 14px;
+      overflow: auto;
+      background: rgba(2, 6, 23, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+      color: #dbeafe;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .badge {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      font-size: 0.92rem;
+    }
+
+    .footer {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      text-align: center;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 860px) {
+      .hero-grid,
+      .grid.cols-2,
+      .grid.cols-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        padding: 24px;
+      }
+
+      .section {
+        padding: 18px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .wrap {
+        width: min(100% - 20px, 1120px);
+        padding-top: 16px;
+      }
+
+      h1 {
+        font-size: 2.1rem;
+      }
+
+      .meta-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .meta-value {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <span class="kicker">TenderGuru integration</span>
+      <h1>Подробное описание проекта TenderGuru Integration</h1>
+      <p class="lead">
+        Этот репозиторий автоматизирует полный цикл работы с TenderGuru: поиск интересующих тендеров,
+        сбор карточек закупок, скачивание прикрепленных документов, извлечение текста из файлов,
+        анализ содержимого и экспорт результатов в удобные форматы. Если коротко, проект нужен для
+        того, чтобы превратить поток закупок в структурированную базу для последующего анализа.
+      </p>
+
+      <div class="badge-row" aria-label="Основные характеристики">
+        <span class="badge">Node.js 18+</span>
+        <span class="badge">ESM</span>
+        <span class="badge">Без внешних зависимостей</span>
+        <span class="badge">CLI + API client</span>
+      </div>
+
+      <div class="hero-grid">
+        <div class="panel">
+          <h2>Как устроен поток работы</h2>
+          <div class="grid">
+            <div class="step">
+              <span class="step-num">1</span>
+              <h3>Подключение к API</h3>
+              <p>Скрипты загружают переменные окружения из <code>.env</code>, после чего создается клиент TenderGuru с поддержкой <code>api_code</code> и <code>refresh_code</code>.</p>
+            </div>
+            <div class="step">
+              <span class="step-num">2</span>
+              <h3>Поиск и фильтрация</h3>
+              <p>Скрипт discovery перебирает набор поисковых запросов по AI, ML, RPA, computer vision, документам и автоматизации, затем отсеивает лишнее и оставляет релевантные тендеры.</p>
+            </div>
+            <div class="step">
+              <span class="step-num">3</span>
+              <h3>Получение деталей</h3>
+              <p>По каждой закупке собираются поля карточки: заказчик, цена, регион, сроки, ссылки на документы, номер тендера и данные контрагента.</p>
+            </div>
+            <div class="step">
+              <span class="step-num">4</span>
+              <h3>Загрузка документов</h3>
+              <p>Документы загружаются из ссылок, найденных в карточке тендера. Скрипт умеет проходить по вложенным HTML-страницам и раскрывать файлы глубже, если они спрятаны за промежуточными просмотрщиками.</p>
+            </div>
+            <div class="step">
+              <span class="step-num">5</span>
+              <h3>Извлечение текста</h3>
+              <p>Если скачан <code>.docx</code>, из него достается текст из <code>word/document.xml</code>, чтобы дальше работать не с бинарником, а с содержимым документа.</p>
+            </div>
+            <div class="step">
+              <span class="step-num">6</span>
+              <h3>Анализ и экспорт</h3>
+              <p>Текст документов анализируется по терминам, модулям и ограничениям, после чего формируются CSV, JSONL и Markdown-отчеты с выводом о продуктовой возможности.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Что это за проект</h2>
+          <div class="meta">
+            <div class="meta-item">
+              <span class="meta-label">Название</span>
+              <span class="meta-value">TenderGuru Integration</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Назначение</span>
+              <span class="meta-value">Сбор, скачивание и анализ тендерной документации</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Основной вход</span>
+              <span class="meta-value"><code>src/cli.js</code></span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Ключевые каталоги</span>
+              <span class="meta-value"><code>src/</code>, <code>scripts/</code>, <code>data/</code>, <code>exports/</code></span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Документация API</span>
+              <span class="meta-value">
+                <a href="https://www.tenderguru.ru/api/documentation" target="_blank" rel="noreferrer">tenderguru.ru/api/documentation</a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Основные модули</h2>
+      <div class="grid cols-2">
+        <div class="file">
+          <h3><code>src/tenderguru-client.js</code></h3>
+          <p>Обертка над TenderGuru API v2.3. Она собирает параметры запросов, вызывает экспортные методы и возвращает ответы в том виде, в котором их дальше обрабатывают CLI и скрипты.</p>
+        </div>
+        <div class="file">
+          <h3><code>src/cli.js</code></h3>
+          <p>Командная строка проекта. Она разбирает аргументы, запускает нужный API-вызов, редактирует секреты в выводе и печатает результат в консоль.</p>
+        </div>
+        <div class="file">
+          <h3><code>src/env.js</code></h3>
+          <p>Загрузка переменных окружения из <code>.env</code>. Это позволяет хранить ключи отдельно от кода и не коммитить секреты в репозиторий.</p>
+        </div>
+        <div class="file">
+          <h3><code>src/export-utils.js</code></h3>
+          <p>Набор общих утилит: создание директорий, очистка текста, редактирование секретов, запись CSV/JSONL и работа с датами.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Что делает каждый скрипт</h2>
+      <div class="grid cols-2">
+        <div class="file">
+          <h3><code>scripts/discover-ai-automation-market.js</code></h3>
+          <p>Ищет тендеры по набору AI/автоматизационных запросов, объединяет совпадения из поиска и раздела документации, присваивает баллы релевантности и пишет отобранные кандидаты в CSV/JSONL.</p>
+        </div>
+        <div class="file">
+          <h3><code>scripts/download-tender-docs.js</code></h3>
+          <p>Берет отобранные тендеры, находит ссылки на документы, скачивает файлы, раскручивает вложенные HTML-страницы и извлекает текст из <code>.docx</code>.</p>
+        </div>
+        <div class="file">
+          <h3><code>scripts/analyze-tender-docs.js</code></h3>
+          <p>Читает скачанный текст, ищет AI-термины, типы модулей, интеграции и ограничения, затем формирует продуктовые карточки и shortlist возможностей.</p>
+        </div>
+        <div class="file">
+          <h3><code>scripts/export-selected-tenders-docs.js</code></h3>
+          <p>Экспортный пример: собирает документы по заранее заданным тендерам и сохраняет их в <code>exports/</code> как CSV для дальнейшего просмотра.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Как выглядит полный сценарий работы</h2>
+      <div class="grid">
+        <div class="step">
+          <span class="step-num">1</span>
+          <h3>Поиск рынка</h3>
+          <p>Запускается <code>discover-ai-automation-market.js</code>. Он перебирает набор ключевых фраз вроде <code>искусственный интеллект</code>, <code>машинное обучение</code>, <code>RPA</code>, <code>workflow</code>, <code>распознавание документов</code> и похожие формулировки. Так репозиторий не полагается на один запрос, а ищет рынок по многим вариантам написания.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">2</span>
+          <h3>Объединение результатов</h3>
+          <p>Результаты поиска и результаты из раздела <code>/documentation</code> складываются в одну коллекцию кандидатов. Один и тот же тендер может встретиться в нескольких запросах, поэтому проект нормализует ID, номера карточек и ссылки, чтобы не дублировать записи.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">3</span>
+          <h3>Оценка релевантности</h3>
+          <p>Каждому кандидату назначается score. В расчет идут совпадения по ключевым словам, наличие AI/ML/automation признаков, группа запроса и общая близость к теме автоматизации. После этого отбираются только релевантные тендеры.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">4</span>
+          <h3>Скачивание документов</h3>
+          <p>Следующий этап - <code>download-tender-docs.js</code>. Скрипт читает CSV с кандидатами, собирает ссылки на файлы из карточек, скачивает их в <code>data/raw/tenderguru/&lt;date&gt;/docs/</code> и пишет рядом метаданные о типе файла и исходном URL.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">5</span>
+          <h3>Рекурсивное раскрытие вложений</h3>
+          <p>Если скачанный файл оказывается HTML-страницей просмотра, скрипт находит вложенные ссылки и скачивает их тоже. Это нужно, потому что на тендерных площадках документ нередко лежит за цепочкой промежуточных страниц и viewer-форм.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">6</span>
+          <h3>Извлечение текста</h3>
+          <p>Когда файл является <code>.docx</code>, из него извлекается текст без внешних библиотек через <code>unzip</code> и XML внутри архива. Это превращает бинарный документ в обычный текстовый файл <code>.txt</code>, пригодный для анализа.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">7</span>
+          <h3>Анализ содержания</h3>
+          <p><code>analyze-tender-docs.js</code> берет текст документов и ищет признаки конкретного продукта: LLM/RAG-помощник, computer vision, медицинский AI, аналитическая ГИС, процессная автоматизация и другие паттерны. На этой основе формируется классификация и продуктовая интерпретация закупки.</p>
+        </div>
+        <div class="step">
+          <span class="step-num">8</span>
+          <h3>Выходные артефакты</h3>
+          <p>Результат пишется в CSV, JSONL и Markdown: это удобно и для машинной обработки, и для ручного чтения. По итогам можно быстро увидеть, какие закупки подходят под повторяемый AI-продукт, а какие требуют кастомной разработки.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Команды запуска</h2>
+      <div class="grid cols-3">
+        <div class="command">
+          <h3>Проверка API</h3>
+          <pre>npm run smoke</pre>
+        </div>
+        <div class="command">
+          <h3>Поиск тендеров</h3>
+          <pre>npm run tg -- search-tenders --kwords '"ремонт дороги"' --price1 10000000 --param f=44 --param r50=1</pre>
+        </div>
+        <div class="command">
+          <h3>Карточка тендера</h3>
+          <pre>npm run tg -- tender --id 12402324</pre>
+        </div>
+        <div class="command">
+          <h3>Контрагент</h3>
+          <pre>npm run tg -- contragent --inn 7716615618</pre>
+        </div>
+        <div class="command">
+          <h3>Контакты контрагента</h3>
+          <pre>npm run tg -- contragent-contact --inn 7716615618</pre>
+        </div>
+        <div class="command">
+          <h3>Произвольный запрос</h3>
+          <pre>npm run tg -- get --param mode=regions</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Настройка окружения</h2>
+      <div class="grid cols-2">
+        <div class="env">
+          <h3>Переменные</h3>
+          <ul>
+            <li><code>TENDERGURU_API_CODE</code> - ключ доступа к API для платных полей и разделов.</li>
+            <li><code>TENDERGURU_REFRESH_CODE</code> - код для получения или обновления <code>api_code</code>.</li>
+          </ul>
+        </div>
+        <div class="env">
+          <h3>Файлы конфигурации</h3>
+          <ul>
+            <li><code>.env</code> - локальные секреты и настройки.</li>
+            <li><code>package.json</code> - команды npm и ограничение на Node.js 18+.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Где лежат результаты</h2>
+      <div class="grid cols-2">
+        <div class="file">
+          <h3><code>data/raw/tenderguru/</code></h3>
+          <p>Сырые выгрузки по датам: результаты поиска, карточки, HTML-просмотры, оригинальные документы и метаданные скачивания.</p>
+        </div>
+        <div class="file">
+          <h3><code>data/analysis/</code></h3>
+          <p>Аналитический слой: CSV, JSONL, Markdown-отчеты, карточки продукта, списки ниш и MVP-гипотезы.</p>
+        </div>
+        <div class="file">
+          <h3><code>exports/</code></h3>
+          <p>Готовые пользовательские выгрузки. Это точка, где лежат компактные таблицы для ручного просмотра или передачи дальше.</p>
+        </div>
+        <div class="file">
+          <h3><code>scripts/</code></h3>
+          <p>Сценарии для поиска, скачивания, анализа и экспорта. Они связывают API-клиент с локальными папками и делают весь конвейер воспроизводимым.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Что получится на выходе</h2>
+      <div class="grid cols-2">
+        <div class="file">
+          <h3>Структурированные таблицы</h3>
+          <p>CSV-файлы с карточками тендеров, кандидатами, классификацией и итогами анализа. Их можно открыть в Excel, BI-системе или загрузить в другую обработку.</p>
+        </div>
+        <div class="file">
+          <h3>Текстовые отчеты</h3>
+          <p>Markdown-файлы с короткими выводами: summary по нишам, shortlist возможностей, продуктовые карточки и пояснения по каждой закупке.</p>
+        </div>
+        <div class="file">
+          <h3>Сырые артефакты</h3>
+          <p>HTML, DOCX, TXT и JSONL остаются рядом, чтобы можно было перепроверить исходные данные и понять, на чем основан вывод.</p>
+        </div>
+        <div class="file">
+          <h3>Повторяемый pipeline</h3>
+          <p>Все шаги запускаются отдельными командами, поэтому можно повторить поиск, перекачать документы или заново пересчитать анализ за конкретную дату.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      Основано на структуре репозитория и коду скриптов. Страница предназначена как понятное объяснение проекта для быстрого входа в его логику.
+    </div>
+  </main>
+</body>
+</html>
