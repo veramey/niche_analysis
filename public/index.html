@@ -189,7 +189,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
     <div class="sidebar-section">
       <div class="section-label">Фильтры</div>
       <div class="toggle-row">
-        <span>Только с анализом</span>
+        <span>С документами</span>
         <label class="toggle"><input type="checkbox" id="analyzedOnly"><span class="toggle-slider"></span></label>
       </div>
     </div>
@@ -271,11 +271,11 @@ async function init() {
 
 function updateStats() {
   const total = all.length;
-  const analyzed = all.filter(t => t.has_card).length;
+  const withDocs = all.filter(t => t.evidence_files && t.evidence_files !== 'info_text').length;
   const budgets = all.map(t => Number(t.budget_rub)||0).filter(b => b > 0);
   const totalBudget = budgets.reduce((a,b) => a+b, 0);
   document.getElementById('statTotal').textContent = `${total} тендеров`;
-  document.getElementById('statAnalyzed').textContent = `${analyzed} с анализом`;
+  document.getElementById('statAnalyzed').textContent = `${withDocs} с документами`;
   document.getElementById('statBudget').textContent = fmtBig(totalBudget) + ' общий бюджет';
 }
 
@@ -306,7 +306,7 @@ function countBy(arr, key) {
 
 function applyFilters() {
   let list = all.slice();
-  if (onlyAnalyzed) list = list.filter(t => t.has_card);
+  if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
   if (activeCat) list = list.filter(t => t.product_category === activeCat);
   if (activeReuse) list = list.filter(t => t.reuse_score === activeReuse);
@@ -339,7 +339,7 @@ function renderTable(list) {
   }
   document.getElementById('tableBody').innerHTML = list.map((t, i) => {
     const analyzed = t.has_card ? 'analyzed' : '';
-    const dot = t.has_card ? '<span class="dot-analyzed" title="Есть анализ"></span>' : '<span class="dot-empty"></span>';
+    const dot = (t.evidence_files && t.evidence_files !== 'info_text') ? '<span class="dot-analyzed" title="Есть документы"></span>' : (t.has_card ? '<span class="dot-analyzed" style="opacity:0.45" title="Анализ из описания"></span>' : '<span class="dot-empty"></span>');
     const name = t.opportunity_title || t.tender_name || t.tender_id;
     const sub = t.opportunity_title && t.tender_name && t.tender_name !== t.opportunity_title ? t.tender_name : '';
     const bCls = budgetClass(Number(t.budget_rub)||0);
