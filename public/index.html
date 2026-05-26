@@ -264,7 +264,6 @@ async function init() {
   document.getElementById('dateBadge').textContent = meta.date;
   all = tenders;
   updateStats();
-  buildSidebarFilters();
   applyFilters();
   setupListeners();
 }
@@ -280,18 +279,19 @@ function updateStats() {
 }
 
 function buildSidebarFilters() {
-  const nicheCounts = countBy(all, 'niche');
-  const catCounts = countBy(all.filter(t => t.product_category), 'product_category');
+  const base = onlyAnalyzed ? all.filter(t => t.evidence_files && t.evidence_files !== 'info_text') : all;
+  const nicheCounts = countBy(base, 'niche');
+  const catCounts = countBy(base.filter(t => t.product_category), 'product_category');
 
   document.getElementById('nicheFilters').innerHTML =
-    filterItem('niche', '', 'Все', all.length, true) +
+    filterItem('niche', '', 'Все', base.length, activeNiche === '') +
     Object.entries(nicheCounts).sort((a,b) => b[1]-a[1]).map(([v,c]) =>
-      filterItem('niche', v, NICHE_LABELS[v]||v, c, false)).join('');
+      filterItem('niche', v, NICHE_LABELS[v]||v, c, activeNiche === v)).join('');
 
   document.getElementById('catFilters').innerHTML =
-    filterItem('cat', '', 'Все', all.filter(t=>t.has_card).length, true) +
+    filterItem('cat', '', 'Все', base.filter(t=>t.product_category).length, activeCat === '') +
     Object.entries(catCounts).sort((a,b) => b[1]-a[1]).map(([v,c]) =>
-      filterItem('cat', v, CAT_LABELS[v]||v, c, false)).join('');
+      filterItem('cat', v, CAT_LABELS[v]||v, c, activeCat === v)).join('');
 }
 
 function filterItem(type, val, label, cnt, active) {
@@ -305,6 +305,7 @@ function countBy(arr, key) {
 }
 
 function applyFilters() {
+  buildSidebarFilters();
   let list = all.slice();
   if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
