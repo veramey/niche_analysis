@@ -80,6 +80,14 @@ thead th { background: var(--surface); border-bottom: 1px solid var(--border); p
 thead th:hover { color: var(--text); }
 thead th .sort-icon { margin-left: 4px; opacity: .4; }
 thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+thead tr.filter-row th { padding: 4px 6px; background: var(--surface); border-bottom: 1px solid var(--border); cursor: default; text-transform: none; font-weight: 400; letter-spacing: 0; }
+.col-filter { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; color: var(--text); font-size: 11px; outline: none; font-family: inherit; }
+.col-filter:focus { border-color: var(--accent); }
+.col-filter::placeholder { color: var(--muted); }
+select.col-filter { cursor: pointer; }
+.filter-reset { font-size: 11px; color: var(--muted); cursor: pointer; padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface2); user-select: none; }
+.filter-reset:hover { color: var(--accent); border-color: var(--accent); }
+.filter-reset.hidden { display: none; }
 tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
 tbody tr:hover { background: var(--surface2); }
 tbody tr.analyzed { border-left: 2px solid var(--accent); }
@@ -244,6 +252,10 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
         <span>С документами</span>
         <label class="toggle"><input type="checkbox" id="analyzedOnly"><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <span>ЕИС</span>
+        <label class="toggle"><input type="checkbox" id="eisOnly"><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -269,6 +281,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 
   <div class="content" style="overflow:hidden;display:flex;flex-direction:column;flex:1;">
     <div class="toolbar">
+      <span class="filter-reset hidden" id="resetFilters" title="Сбросить все фильтры">Сбросить фильтры</span>
       <span class="result-count" id="resultCount">—</span>
     </div>
     <div class="table-wrap">
@@ -284,6 +297,24 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
             <th data-col="product_category">Категория <span class="sort-icon">↕</span></th>
             <th data-col="reuse_score">Reuse <span class="sort-icon">↕</span></th>
             <th data-col="date">Дата <span class="sort-icon">↕</span></th>
+          </tr>
+          <tr class="filter-row">
+            <th></th>
+            <th></th>
+            <th></th>
+            <th><select class="col-filter" data-col="budget_rub">
+              <option value="">все</option>
+              <option value="0-1">до 1M</option>
+              <option value="1-5">1–5M</option>
+              <option value="5-50">5–50M</option>
+              <option value="50-500">50–500M</option>
+              <option value=">500">>500M</option>
+            </select></th>
+            <th><select class="col-filter" data-col="region"><option value="">все</option></select></th>
+            <th><select class="col-filter" data-col="niche"><option value="">все</option></select></th>
+            <th><select class="col-filter" data-col="product_category"><option value="">все</option></select></th>
+            <th><select class="col-filter" data-col="reuse_score"><option value="">все</option><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select></th>
+            <th><select class="col-filter" data-col="date"><option value="">все</option></select></th>
           </tr>
         </thead>
         <tbody id="tableBody"><tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</td></tr></tbody>
@@ -308,7 +339,80 @@ const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', comp
 const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис' };
 
 let all = [], filtered = [];
-let activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+let activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+let columnFilters = { budget_rub: '', region: '', niche: '', product_category: '', reuse_score: '', date: '' };
+
+const hasEis = t => Boolean(t.eis_link || (t.tender_link && t.tender_link !== '-' && t.tender_link.startsWith('http')));
+
+const BUDGET_RANGES = {
+  '0-1':    [0, 1e6],
+  '1-5':    [1e6, 5e6],
+  '5-50':   [5e6, 50e6],
+  '50-500': [50e6, 500e6],
+  '>500':   [500e6, Infinity],
+};
+
+function matchBudgetFilter(value, key) {
+  const r = BUDGET_RANGES[key];
+  if (!r) return true;
+  const n = Number(value) || 0;
+  return n >= r[0] && n < r[1];
+}
+
+// Convert "DD-MM-YYYY" → "YYYY-MM"
+function dateYearMonth(d) {
+  if (!d) return '';
+  const m = d.match(/^(\d{2})-(\d{2})-(\d{4})/);
+  return m ? `${m[3]}-${m[2]}` : '';
+}
+
+function applyColumnFilters(list) {
+  for (const [col, raw] of Object.entries(columnFilters)) {
+    const val = (raw || '').trim();
+    if (!val) continue;
+    if (col === 'budget_rub') {
+      list = list.filter(t => matchBudgetFilter(t.budget_rub, val));
+    } else if (col === 'date') {
+      list = list.filter(t => dateYearMonth(t.date) === val);
+    } else {
+      list = list.filter(t => t[col] === val);
+    }
+  }
+  return list;
+}
+
+function populateColumnSelects() {
+  const niches = [...new Set(all.map(t => t.niche).filter(Boolean))].sort();
+  const cats = [...new Set(all.map(t => t.product_category).filter(Boolean))].sort();
+  const regions = [...new Set(all.map(t => t.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
+  const months = [...new Set(all.map(t => dateYearMonth(t.date)).filter(Boolean))].sort().reverse();
+  const fill = (col, opts) => {
+    document.querySelector(`select.col-filter[data-col="${col}"]`).innerHTML =
+      '<option value="">все</option>' + opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
+  };
+  fill('niche', niches.map(v => ({ v, l: NICHE_LABELS[v] || v })));
+  fill('product_category', cats.map(v => ({ v, l: CAT_LABELS[v] || v })));
+  fill('region', regions.map(v => ({ v, l: v })));
+  fill('date', months.map(v => ({ v, l: v })));
+}
+
+function updateResetVisibility() {
+  const anyCol = Object.values(columnFilters).some(v => (v || '').trim());
+  const any = anyCol || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || search;
+  document.getElementById('resetFilters').classList.toggle('hidden', !any);
+}
+
+function resetAllFilters() {
+  columnFilters = { budget_rub: '', region: '', niche: '', product_category: '', reuse_score: '', date: '' };
+  document.querySelectorAll('.col-filter').forEach(el => { el.value = ''; });
+  activeNiche = ''; activeCat = ''; activeReuse = '';
+  onlyAnalyzed = false; onlyEis = false; search = '';
+  document.getElementById('searchInput').value = '';
+  document.getElementById('analyzedOnly').checked = false;
+  document.getElementById('eisOnly').checked = false;
+  document.querySelectorAll('[data-type="reuse"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
+  applyFilters();
+}
 
 async function init() {
   const [meta, tenders] = await Promise.all([
@@ -317,6 +421,7 @@ async function init() {
   ]);
   document.getElementById('dateBadge').textContent = meta.date;
   all = tenders;
+  populateColumnSelects();
   updateStats();
   applyFilters();
   setupListeners();
@@ -333,7 +438,9 @@ function updateStats() {
 }
 
 function buildSidebarFilters() {
-  const base = onlyAnalyzed ? all.filter(t => t.evidence_files && t.evidence_files !== 'info_text') : all;
+  let base = all;
+  if (onlyAnalyzed) base = base.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
+  if (onlyEis) base = base.filter(hasEis);
   const nicheCounts = countBy(base, 'niche');
   const catCounts = countBy(base.filter(t => t.product_category), 'product_category');
 
@@ -362,6 +469,7 @@ function applyFilters() {
   buildSidebarFilters();
   let list = all.slice();
   if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
+  if (onlyEis) list = list.filter(hasEis);
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
   if (activeCat) list = list.filter(t => t.product_category === activeCat);
   if (activeReuse) list = list.filter(t => t.reuse_score === activeReuse);
@@ -369,9 +477,11 @@ function applyFilters() {
     const q = search.toLowerCase();
     list = list.filter(t => (t.tender_name||'').toLowerCase().includes(q) || (t.customer||'').toLowerCase().includes(q) || (t.opportunity_title||'').toLowerCase().includes(q));
   }
+  list = applyColumnFilters(list);
   list.sort(makeSorter(sortCol, sortDir));
   filtered = list;
   document.getElementById('resultCount').textContent = `${list.length} из ${all.length}`;
+  updateResetVisibility();
   renderTable(list);
 }
 
@@ -449,6 +559,13 @@ function setupListeners() {
     applyFilters();
   });
   document.getElementById('analyzedOnly').addEventListener('change', e => { onlyAnalyzed = e.target.checked; applyFilters(); });
+  document.getElementById('eisOnly').addEventListener('change', e => { onlyEis = e.target.checked; applyFilters(); });
+  document.getElementById('resetFilters').addEventListener('click', resetAllFilters);
+
+  document.querySelectorAll('.col-filter').forEach(el => {
+    el.addEventListener('change', e => { columnFilters[e.target.dataset.col] = e.target.value; applyFilters(); });
+    el.addEventListener('click', e => e.stopPropagation());
+  });
 
   document.addEventListener('click', e => {
     const fi = e.target.closest('.filter-item[data-type]');
