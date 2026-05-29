@@ -9,12 +9,14 @@
     "smoke": "node src/cli.js get --param mode=regions --limit-output 1200",
     "analyze-docs": "node scripts/analyze-tender-docs.js",
     "find-tz": "node scripts/find-tz-candidates.js",
+    "export-missing-doc-links": "node scripts/export-missing-doc-links.js",
     "download-find-tz": "node scripts/download-and-find-tz.js",
     "dashboard": "node scripts/serve-analysis.js",
     "analyze-info": "node scripts/analyze-info-text.js",
     "patch-cards": "node scripts/patch-cards-add-info.js",
     "classify-spheres": "node scripts/classify-tender-spheres-llm.js",
-    "build": "node scripts/build-static.js"
+    "build": "node scripts/build-static.js",
+    "fetch-missing-docs": "node scripts/fetch-missing-docs.js"
   },
   "engines": {
     "node": ">=18"
