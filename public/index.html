@@ -432,8 +432,8 @@ function resetAllFilters() {
 
 async function init() {
   const [meta, tenders] = await Promise.all([
-    fetch('/api/meta').then(r => r.json()),
-    fetch('/api/tenders').then(r => r.json()),
+    fetch('data/meta.json').then(r => r.json()).catch(() => fetch('/api/meta').then(r => r.json())),
+    fetch('data/tenders.json').then(r => r.json()).catch(() => fetch('/api/tenders').then(r => r.json())),
   ]);
   document.getElementById('dateBadge').textContent = meta.date;
   all = tenders.map(t => ({ ...t, sphere_label: t.sphere_label || SPHERE_LABELS[t.sphere] || t.sphere || '' }));
