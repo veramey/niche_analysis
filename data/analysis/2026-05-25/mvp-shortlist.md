@@ -39,28 +39,28 @@ Generated from extracted TenderGuru documents for 2026-05-25.
    MVP: AI monitoring workspace: сбор источников, классификация/контент-анализ, дашборд инсайтов, отчеты и workflow проверки.  
    Card: `data/analysis/2026-05-25/product-cards/0174500001125006512.md`
 
-8. **Защищенный корпоративный RAG/LLM-помощник**  
-   Tender: `0848200000525000078`, budget: 45631997 RUB, reuse: high, complexity: medium  
-   MVP: Secure RAG assistant: загрузка документов, векторная база, чат с источниками, summary/comparison/fact extraction, feedback, админка обновления базы и API для портала/мессенджера.  
-   Card: `data/analysis/2026-05-25/product-cards/0848200000525000078.md`
-
-9. **AI-сервис мониторинга и контент-анализа**  
+8. **AI-сервис мониторинга и контент-анализа**  
    Tender: `0373100029525000681`, budget: 15000000 RUB, reuse: high, complexity: low  
    MVP: AI monitoring workspace: сбор источников, классификация/контент-анализ, дашборд инсайтов, отчеты и workflow проверки.  
    Card: `data/analysis/2026-05-25/product-cards/0373100029525000681.md`
 
-10. **AI-сервис мониторинга и контент-анализа**  
-   Tender: `0848200000525000063`, budget: 45000000 RUB, reuse: high, complexity: medium  
+9. **AI-сервис мониторинга и контент-анализа**  
+   Tender: `32615985739`, budget: 41666666 RUB, reuse: high, complexity: medium  
    MVP: AI monitoring workspace: сбор источников, классификация/контент-анализ, дашборд инсайтов, отчеты и workflow проверки.  
-   Card: `data/analysis/2026-05-25/product-cards/0848200000525000063.md`
+   Card: `data/analysis/2026-05-25/product-cards/32615985739.md`
+
+10. **AI-сервис мониторинга и контент-анализа**  
+   Tender: `0356500001425005800`, budget: 8176400 RUB, reuse: high, complexity: low  
+   MVP: AI monitoring workspace: сбор источников, классификация/контент-анализ, дашборд инсайтов, отчеты и workflow проверки.  
+   Card: `data/analysis/2026-05-25/product-cards/0356500001425005800.md`
 
 ## Category Counts
 
-- computer_vision: 29
-- medical_ai_support: 49
-- analytics_monitoring: 19
-- process_automation: 2
+- computer_vision: 20
+- medical_ai_support: 47
+- analytics_monitoring: 16
+- process_automation: 1
 - gov_regulatory_analytics: 24
-- software_services: 4
-- enterprise_rag_llm_assistant: 13
+- software_services: 2
+- enterprise_rag_llm_assistant: 12
 - voice_assistant_healthcare: 1

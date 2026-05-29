@@ -4,6 +4,9 @@ import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { loadDotEnv } from '../src/env.js';
+import { loadBlocklist, filterBlocked } from '../src/blocklist.js';
+import { relabelTender } from '../src/scoring.js';
+import { cleanText } from '../src/export-utils.js';
 
 loadDotEnv();
 
@@ -123,7 +126,8 @@ const server = createServer(async (req, res) => {
 
   try {
     if (path === '/api/tenders') {
-      const data = await buildAllTenders();
+      const data = filterBlocked(await buildAllTenders(), loadBlocklist(runDate));
+      for (const t of data) relabelTender(t, cleanText);
       return json(res, data);
     }
 

@@ -96,6 +96,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 .col-name { max-width: 260px; }
 .name-main { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .name-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; margin-top: 1px; }
+.ai-badge { display: inline-block; max-width: 260px; margin-top: 2px; padding: 0 6px; font-size: 10px; line-height: 15px; color: var(--muted); background: rgba(127,127,127,0.12); border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 
 .budget-cell { font-weight: 600; white-space: nowrap; }
 .budget-big { color: var(--green); }
@@ -528,8 +529,12 @@ function renderTable(list) {
   document.getElementById('tableBody').innerHTML = list.map((t, i) => {
     const analyzed = t.has_card ? 'analyzed' : '';
     const dot = (t.evidence_files && t.evidence_files !== 'info_text') ? '<span class="dot-analyzed" title="Есть документы"></span>' : (t.has_card ? '<span class="dot-analyzed" style="opacity:0.45" title="Анализ из описания"></span>' : '<span class="dot-empty"></span>');
-    const name = t.opportunity_title || t.tender_name || t.tender_id;
-    const sub = t.opportunity_title && t.tender_name && t.tender_name !== t.opportunity_title ? t.tender_name : '';
+    const name = escapeHtml(t.tender_name || t.opportunity_title || t.tender_id);
+    const oppT = (t.opportunity_title || '').trim();
+    const nm = (t.tender_name || '').trim();
+    // AI-заголовок показываем бейджем только если он осмысленно отличается от официального имени
+    // (titleFor() для части тендеров возвращает обрезанное tender_name — это не показываем).
+    const sub = oppT && nm && !nm.startsWith(oppT) ? escapeHtml(oppT) : '';
     const bCls = budgetClass(Number(t.budget_rub)||0);
     const reuseCls = t.reuse_score ? `reuse-${t.reuse_score}` : '';
     const sphere = t.sphere_label || SPHERE_LABELS[t.sphere] || t.sphere || '—';
@@ -537,7 +542,7 @@ function renderTable(list) {
     const cat = t.product_category ? (CAT_LABELS[t.product_category] || t.product_category) : '—';
     return `<tr class="${analyzed}" onclick="openPanel('${t.tender_id}')">
       <td style="text-align:center">${dot}</td>
-      <td class="col-name"><div class="name-main" title="${name}">${name}</div>${sub ? `<div class="name-sub">${sub}</div>` : ''}</td>
+      <td class="col-name"><div class="name-main" title="${name}">${name}</div>${sub ? `<span class="ai-badge" title="AI-заголовок возможности">${sub}</span>` : ''}</td>
       <td><div class="name-sub" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.customer}">${t.customer||'—'}</div></td>
       <td class="budget-cell ${bCls}">${fmtBudget(t.budget_rub)}</td>
       <td class="region-cell" title="${t.region}">${t.region||'—'}</td>
@@ -550,6 +555,9 @@ function renderTable(list) {
   }).join('');
 }
 
+function escapeHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 function budgetClass(n) {
   if (!n) return 'budget-none';
   if (n >= 50e6) return 'budget-big';

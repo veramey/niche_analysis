@@ -146,12 +146,19 @@ function upsertCandidate(item, query, source) {
 }
 
 function scoreCandidate(candidate) {
+  // Полный текст — только для НЕГАТИВНЫХ маркеров.
   const haystack = [
     candidate.name,
     candidate.category,
     candidate.searchFragment,
     [...candidate.queries].join(' '),
   ].join(' ').toLowerCase();
+
+  // Позитивные AI/IT-термины считаем ТОЛЬКО по предмету закупки (название + категория).
+  // Иначе совпадал сам поисковый запрос («искусственный интеллект») и/или boilerplate-фраза
+  // «технологии искусственного интеллекта» из карточки — из-за этого погрузчики/топливо/
+  // оросители проходили как ai_core. Предмет в названии — единственный чистый сигнал.
+  const subject = [candidate.name, candidate.category].join(' ').toLowerCase();
 
   const matchedTerms = [];
   let score = 0;
@@ -198,7 +205,7 @@ function scoreCandidate(candidate) {
   ];
 
   for (const [points, term] of positive) {
-    if (haystack.includes(term)) {
+    if (subject.includes(term)) {
       score += points;
       matchedTerms.push(term);
     }

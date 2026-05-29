@@ -5,6 +5,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, copyFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { loadBlocklist, filterBlocked } from '../src/blocklist.js';
+import { relabelTender } from '../src/scoring.js';
+import { cleanText } from '../src/export-utils.js';
 
 const runDate = process.argv[2] || '2026-05-25';
 const processedDir = `data/processed/${runDate}`;
@@ -102,10 +105,18 @@ const tenders = base.map(c => {
   };
 });
 
+// Отфильтровать нерелевантные тендеры (мусор) по блок-листу.
+const blocklist = loadBlocklist(runDate);
+const cleanTenders = filterBlocked(tenders, blocklist);
+const removed = tenders.length - cleanTenders.length;
+
+// Переразметить matched_terms / classification / reason по предмету (честные метки).
+for (const t of cleanTenders) relabelTender(t, cleanText);
+
 // Write output
 mkdirSync(outCardsDir, { recursive: true });
 
-writeFileSync(`${outDir}/tenders.json`, JSON.stringify(tenders));
+writeFileSync(`${outDir}/tenders.json`, JSON.stringify(cleanTenders));
 writeFileSync(`${outDir}/meta.json`, JSON.stringify({ date: runDate }));
 
 // Copy product cards
@@ -119,6 +130,6 @@ if (existsSync(cardsDir)) {
   }
 }
 
-console.log(`tenders.json: ${tenders.length} records`);
+console.log(`tenders.json: ${cleanTenders.length} records (removed ${removed} blocklisted of ${tenders.length})`);
 console.log(`cards: ${copied} files`);
 console.log(`Output: ${outDir}/`);
