@@ -48,6 +48,25 @@ function parseCsvRow(line) {
   return cells;
 }
 
+function addRowsToMap(map, rows) {
+  for (const row of rows) {
+    for (const key of [row.tender_id, row.tenderguru_card_id, row.documentation_result_id]) {
+      if (key && !map.has(key)) map.set(key, row);
+    }
+  }
+}
+
+function sphereFields(row = {}) {
+  return {
+    sphere: row.sphere || '',
+    sphere_label: row.sphere_label || '',
+    sphere_confidence: row.sphere_confidence || row.confidence || '',
+    sphere_evidence: row.sphere_evidence || row.evidence || '',
+    secondary_spheres: row.secondary_spheres || '',
+    sphere_needs_review: row.sphere_needs_review || row.needs_review || '',
+  };
+}
+
 function json(res, data, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(JSON.stringify(data));
@@ -59,24 +78,41 @@ function notFound(res, msg = 'Not found') {
 }
 
 async function buildAllTenders() {
-  const [fullText, requirementsText] = await Promise.all([
+  const [fullText, classifiedWithSpheresText, classifiedText, requirementsText, spheresText] = await Promise.all([
     readFile(`${processedDir}/full-tenders.csv`, 'utf8').catch(() => ''),
+    readFile(`${processedDir}/classified-tenders-with-spheres.csv`, 'utf8').catch(() => ''),
+    readFile(`${processedDir}/classified-tenders.csv`, 'utf8').catch(() => ''),
     readFile(`${analysisDir}/tender-requirements.csv`, 'utf8').catch(() => ''),
+    readFile(`${analysisDir}/sphere-classifications.csv`, 'utf8').catch(() => ''),
   ]);
-  const baseText = fullText || await readFile(`${processedDir}/classified-tenders.csv`, 'utf8');
-  const base = parseCsv(baseText);
+  const full = fullText ? parseCsv(fullText) : [];
+  const classified = parseCsv(classifiedWithSpheresText || classifiedText || fullText);
+  const base = classified.length ? classified : full;
   const requirements = requirementsText ? parseCsv(requirementsText) : [];
+  const spheres = spheresText ? parseCsv(spheresText) : [];
+  const fullMap = new Map();
   const reqMap = new Map([
     ...requirements.map(r => [r.tender_id, r]),
     ...requirements.map(r => [r.tenderguru_card_id, r]),
   ].filter(([k]) => k));
+  const sphereMap = new Map();
+  addRowsToMap(fullMap, full);
+  addRowsToMap(sphereMap, spheres);
+  addRowsToMap(sphereMap, base.filter(r => r.sphere || r.sphere_label));
 
-  return base.map(c => ({
-    ...c,
-    budget_rub: c.budget_rub || c.price || c.ob_price || '',
-    ...(reqMap.get(c.tender_id) || reqMap.get(c.tenderguru_card_id) || {}),
-    has_card: reqMap.has(c.tender_id) || reqMap.has(c.tenderguru_card_id),
-  }));
+  return base.map(c => {
+    const fullRow = fullMap.get(c.tender_id) || fullMap.get(c.tenderguru_card_id) || {};
+    const reqRow = reqMap.get(c.tender_id) || reqMap.get(c.tenderguru_card_id) || {};
+    const sphereRow = sphereMap.get(c.tender_id) || sphereMap.get(c.tenderguru_card_id) || {};
+    return {
+      ...fullRow,
+      ...c,
+      budget_rub: c.budget_rub || fullRow.budget_rub || c.price || fullRow.price || c.ob_price || fullRow.ob_price || '',
+      ...reqRow,
+      ...sphereFields({ ...c, ...sphereRow }),
+      has_card: reqMap.has(c.tender_id) || reqMap.has(c.tenderguru_card_id),
+    };
+  });
 }
 
 const server = createServer(async (req, res) => {

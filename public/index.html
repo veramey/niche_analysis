@@ -104,6 +104,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 .budget-none { color: var(--muted); }
 
 .tag { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: 500; white-space: nowrap; }
+.tag-sphere { background: #19332722; border: 1px solid #16653444; color: #86efac; }
 .tag-niche { background: #1e2d5a22; border: 1px solid #1e3a8a44; color: #93c5fd; }
 .tag-cat { background: #2d1f4a22; border: 1px solid #4c1d9544; color: #c4b5fd; }
 .reuse-high { color: var(--green); font-weight: 600; }
@@ -259,6 +260,11 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
     </div>
 
     <div class="sidebar-section">
+      <div class="section-label">Сфера</div>
+      <div class="filter-group" id="sphereFilters"></div>
+    </div>
+
+    <div class="sidebar-section">
       <div class="section-label">Ниша</div>
       <div class="filter-group" id="nicheFilters"></div>
     </div>
@@ -293,6 +299,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
             <th data-col="customer">Заказчик <span class="sort-icon">↕</span></th>
             <th data-col="budget_rub">Бюджет <span class="sort-icon">↕</span></th>
             <th data-col="region">Регион <span class="sort-icon">↕</span></th>
+            <th data-col="sphere_label">Сфера <span class="sort-icon">↕</span></th>
             <th data-col="niche">Ниша <span class="sort-icon">↕</span></th>
             <th data-col="product_category">Категория <span class="sort-icon">↕</span></th>
             <th data-col="reuse_score">Reuse <span class="sort-icon">↕</span></th>
@@ -311,13 +318,14 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
               <option value=">500">>500M</option>
             </select></th>
             <th><select class="col-filter" data-col="region"><option value="">все</option></select></th>
+            <th><select class="col-filter" data-col="sphere_label"><option value="">все</option></select></th>
             <th><select class="col-filter" data-col="niche"><option value="">все</option></select></th>
             <th><select class="col-filter" data-col="product_category"><option value="">все</option></select></th>
             <th><select class="col-filter" data-col="reuse_score"><option value="">все</option><option value="high">high</option><option value="medium">medium</option><option value="low">low</option></select></th>
             <th><select class="col-filter" data-col="date"><option value="">все</option></select></th>
           </tr>
         </thead>
-        <tbody id="tableBody"><tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</td></tr></tbody>
+        <tbody id="tableBody"><tr><td colspan="10" style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -335,12 +343,13 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 </div>
 
 <script>
+const SPHERE_LABELS = { healthcare:'Медицина', construction:'Строительство', transport_logistics:'Транспорт / логистика', utilities:'ЖКХ / коммунальная инфраструктура', security:'Безопасность', education_science:'Образование / наука', industry_energy:'Промышленность / энергетика', finance_insurance:'Финансы / страхование', retail_commerce:'Ритейл / коммерция', telecom_media:'Телеком / медиа / связь', culture_sport:'Культура / спорт / туризм', agriculture_ecology:'АПК / экология', social_services:'Социальная поддержка / занятость', public_admin:'Госуправление', it_internal:'Внутренняя ИТ-автоматизация', other:'Другое / неясно' };
 const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', computer_vision:'CV', process_automation:'Автоматизация', document_ai:'Document AI', analytics:'Аналитика', ml:'ML', custom_software:'Разработка ПО', aiot:'AIoT' };
 const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис' };
 
 let all = [], filtered = [];
-let activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
-let columnFilters = { budget_rub: '', region: '', niche: '', product_category: '', reuse_score: '', date: '' };
+let activeSphere = '', activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+let columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
 
 const hasEis = t => Boolean(t.eis_link || (t.tender_link && t.tender_link !== '-' && t.tender_link.startsWith('http')));
 
@@ -382,6 +391,7 @@ function applyColumnFilters(list) {
 }
 
 function populateColumnSelects() {
+  const spheres = [...new Set(all.map(t => t.sphere_label).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
   const niches = [...new Set(all.map(t => t.niche).filter(Boolean))].sort();
   const cats = [...new Set(all.map(t => t.product_category).filter(Boolean))].sort();
   const regions = [...new Set(all.map(t => t.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
@@ -390,6 +400,7 @@ function populateColumnSelects() {
     document.querySelector(`select.col-filter[data-col="${col}"]`).innerHTML =
       '<option value="">все</option>' + opts.map(o => `<option value="${o.v}">${o.l}</option>`).join('');
   };
+  fill('sphere_label', spheres.map(v => ({ v, l: v })));
   fill('niche', niches.map(v => ({ v, l: NICHE_LABELS[v] || v })));
   fill('product_category', cats.map(v => ({ v, l: CAT_LABELS[v] || v })));
   fill('region', regions.map(v => ({ v, l: v })));
@@ -398,18 +409,19 @@ function populateColumnSelects() {
 
 function updateResetVisibility() {
   const anyCol = Object.values(columnFilters).some(v => (v || '').trim());
-  const any = anyCol || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || search;
+  const any = anyCol || activeSphere || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || search;
   document.getElementById('resetFilters').classList.toggle('hidden', !any);
 }
 
 function resetAllFilters() {
-  columnFilters = { budget_rub: '', region: '', niche: '', product_category: '', reuse_score: '', date: '' };
+  columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
   document.querySelectorAll('.col-filter').forEach(el => { el.value = ''; });
-  activeNiche = ''; activeCat = ''; activeReuse = '';
+  activeSphere = ''; activeNiche = ''; activeCat = ''; activeReuse = '';
   onlyAnalyzed = false; onlyEis = false; search = '';
   document.getElementById('searchInput').value = '';
   document.getElementById('analyzedOnly').checked = false;
   document.getElementById('eisOnly').checked = false;
+  document.querySelectorAll('[data-type="sphere"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   document.querySelectorAll('[data-type="reuse"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   applyFilters();
 }
@@ -420,7 +432,7 @@ async function init() {
     fetch('data/tenders.json').then(r => r.json()),
   ]);
   document.getElementById('dateBadge').textContent = meta.date;
-  all = tenders;
+  all = tenders.map(t => ({ ...t, sphere_label: t.sphere_label || SPHERE_LABELS[t.sphere] || t.sphere || '' }));
   populateColumnSelects();
   updateStats();
   applyFilters();
@@ -441,8 +453,14 @@ function buildSidebarFilters() {
   let base = all;
   if (onlyAnalyzed) base = base.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) base = base.filter(hasEis);
+  const sphereCounts = countBy(base, 'sphere_label');
   const nicheCounts = countBy(base, 'niche');
   const catCounts = countBy(base.filter(t => t.product_category), 'product_category');
+
+  document.getElementById('sphereFilters').innerHTML =
+    filterItem('sphere', '', 'Все', base.filter(t=>t.sphere_label).length, activeSphere === '') +
+    Object.entries(sphereCounts).sort((a,b) => b[1]-a[1]).map(([v,c]) =>
+      filterItem('sphere', v, v, c, activeSphere === v)).join('');
 
   document.getElementById('nicheFilters').innerHTML =
     filterItem('niche', '', 'Все', base.length, activeNiche === '') +
@@ -470,6 +488,7 @@ function applyFilters() {
   let list = all.slice();
   if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) list = list.filter(hasEis);
+  if (activeSphere) list = list.filter(t => t.sphere_label === activeSphere);
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
   if (activeCat) list = list.filter(t => t.product_category === activeCat);
   if (activeReuse) list = list.filter(t => t.reuse_score === activeReuse);
@@ -499,7 +518,7 @@ function makeSorter(col, dir) {
 
 function renderTable(list) {
   if (!list.length) {
-    document.getElementById('tableBody').innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:var(--muted)">Нет данных</td></tr>';
+    document.getElementById('tableBody').innerHTML = '<tr><td colspan="10" style="padding:40px;text-align:center;color:var(--muted)">Нет данных</td></tr>';
     return;
   }
   document.getElementById('tableBody').innerHTML = list.map((t, i) => {
@@ -509,6 +528,7 @@ function renderTable(list) {
     const sub = t.opportunity_title && t.tender_name && t.tender_name !== t.opportunity_title ? t.tender_name : '';
     const bCls = budgetClass(Number(t.budget_rub)||0);
     const reuseCls = t.reuse_score ? `reuse-${t.reuse_score}` : '';
+    const sphere = t.sphere_label || SPHERE_LABELS[t.sphere] || t.sphere || '—';
     const niche = NICHE_LABELS[t.niche] || t.niche || '—';
     const cat = t.product_category ? (CAT_LABELS[t.product_category] || t.product_category) : '—';
     return `<tr class="${analyzed}" onclick="openPanel('${t.tender_id}')">
@@ -517,6 +537,7 @@ function renderTable(list) {
       <td><div class="name-sub" style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.customer}">${t.customer||'—'}</div></td>
       <td class="budget-cell ${bCls}">${fmtBudget(t.budget_rub)}</td>
       <td class="region-cell" title="${t.region}">${t.region||'—'}</td>
+      <td><span class="tag tag-sphere">${sphere}</span></td>
       <td><span class="tag tag-niche">${niche}</span></td>
       <td>${t.product_category ? `<span class="tag tag-cat">${cat}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
       <td class="${reuseCls}">${t.reuse_score||'—'}</td>
@@ -571,7 +592,10 @@ function setupListeners() {
     const fi = e.target.closest('.filter-item[data-type]');
     if (!fi) return;
     const { type, val } = fi.dataset;
-    if (type === 'niche') {
+    if (type === 'sphere') {
+      activeSphere = val;
+      document.querySelectorAll('[data-type="sphere"]').forEach(el => el.classList.toggle('active', el.dataset.val === val));
+    } else if (type === 'niche') {
       activeNiche = val;
       document.querySelectorAll('[data-type="niche"]').forEach(el => el.classList.toggle('active', el.dataset.val === val));
     } else if (type === 'cat') {
@@ -629,6 +653,7 @@ function renderMetaBox(t) {
     <div class="meta-box"><div class="k">Бюджет</div><div class="v green">${fmtBudget(t.budget_rub)}</div></div>
     <div class="meta-box"><div class="k">ФЗ</div><div class="v">${t.fz||'—'}</div></div>
     <div class="meta-box"><div class="k">Регион</div><div class="v accent" style="font-size:11px">${t.region||'—'}</div></div>
+    ${t.sphere_label ? `<div class="meta-box"><div class="k">Сфера</div><div class="v">${t.sphere_label}</div></div>` : ''}
     ${t.reuse_score ? `<div class="meta-box"><div class="k">Повторяемость</div><div class="v">${t.reuse_score}</div></div>` : ''}
     ${t.complexity ? `<div class="meta-box"><div class="k">Сложность</div><div class="v">${t.complexity}</div></div>` : ''}
     <div class="meta-box"><div class="k">ID</div><div class="v" style="font-size:11px;color:var(--muted)">${t.tender_id}</div></div>
@@ -642,6 +667,7 @@ function renderBaseInfo(t) {
 
   const metaRows = [
     ['Заказчик', t.customer],
+    ['Сфера', t.sphere_label],
     ['ИНН заказчика', t.customer_inn],
     ['Контакт', [t.contact_name, t.contact_email, t.contact_phone].filter(Boolean).join(' · ')],
     ['Номер тендера', t.tender_num],
