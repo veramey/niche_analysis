@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Анализ рынка: ключевые слова Wordstat × тендеры</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #1a1d27;
+    --bg3: #22263a;
+    --border: #2e3250;
+    --accent: #6c7cff;
+    --accent2: #4ade80;
+    --accent3: #f59e0b;
+    --accent4: #f87171;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --tag-a: #1e3a5f;
+    --tag-b: #1a3d2b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+  /* Layout */
+  .page { max-width: 1200px; margin: 0 auto; padding: 40px 24px; }
+  header { margin-bottom: 48px; border-bottom: 1px solid var(--border); padding-bottom: 32px; }
+  header h1 { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+  header .meta { color: var(--muted); font-size: 13px; display: flex; gap: 24px; flex-wrap: wrap; }
+  header .meta span::before { content: '• '; color: var(--accent); }
+
+  /* Section */
+  .section { margin-bottom: 56px; }
+  .section-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 10px; }
+  .section-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+  .badge-a { background: var(--tag-a); color: #93c5fd; }
+  .badge-b { background: var(--tag-b); color: #86efac; }
+
+  /* Summary cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 40px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card .num { font-size: 32px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+  .card .label { font-size: 12px; color: var(--muted); }
+
+  /* Module grid */
+  .modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 20px; }
+  .module { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .module-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 12px; }
+  .module-name { font-size: 15px; font-weight: 700; color: #fff; }
+  .module-meta { display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+  .tenders { font-size: 12px; color: var(--accent3); font-weight: 600; }
+  .complexity { font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .low { background: #14532d; color: #86efac; }
+  .medium { background: #422006; color: #fcd34d; }
+  .high { background: #450a0a; color: #fca5a5; }
+
+  /* Bar chart */
+  .kw-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+  .kw-row { display: flex; align-items: center; gap: 10px; }
+  .kw-label { font-size: 12px; color: var(--text); min-width: 200px; flex-shrink: 0; }
+  .bar-wrap { flex: 1; background: var(--bg3); border-radius: 4px; height: 20px; overflow: hidden; }
+  .bar { height: 100%; border-radius: 4px; transition: width 0.3s; display: flex; align-items: center; padding-left: 8px; }
+  .bar span { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.9); white-space: nowrap; }
+  .bar-blue { background: linear-gradient(90deg, #3b4fd8, #6c7cff); }
+  .bar-green { background: linear-gradient(90deg, #15803d, #4ade80); }
+  .bar-amber { background: linear-gradient(90deg, #b45309, #f59e0b); }
+  .bar-red { background: linear-gradient(90deg, #b91c1c, #f87171); }
+  .bar-gray { background: linear-gradient(90deg, #374151, #6b7280); }
+
+  /* Verdict */
+  .verdict { font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 12px; line-height: 1.5; }
+  .verdict strong { color: var(--text); }
+
+  /* SEO badge */
+  .seo-yes { color: var(--accent2); font-weight: 700; font-size: 12px; }
+  .seo-warn { color: var(--accent3); font-weight: 700; font-size: 12px; }
+  .seo-no { color: var(--accent4); font-weight: 700; font-size: 12px; }
+
+  /* Big table */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 14px; font-size: 12px; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .num-cell { font-weight: 700; font-family: monospace; }
+  .big { color: var(--accent2); }
+  .mid { color: var(--accent3); }
+  .low-num { color: var(--muted); }
+
+  /* Priority matrix */
+  .matrix { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .priority-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .priority-block h3 { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+  .p1 { border-left: 3px solid var(--accent2); }
+  .p1 h3 { color: var(--accent2); }
+  .p2 { border-left: 3px solid var(--accent); }
+  .p2 h3 { color: var(--accent); }
+  .p3 { border-left: 3px solid var(--accent3); }
+  .p3 h3 { color: var(--accent3); }
+  .p4 { border-left: 3px solid var(--muted); }
+  .p4 h3 { color: var(--muted); }
+  .priority-block ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .priority-block li { font-size: 12px; color: var(--text); display: flex; justify-content: space-between; align-items: center; }
+  .priority-block li .kw { color: var(--muted); font-size: 11px; }
+
+  .insight { background: var(--bg3); border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; font-size: 13px; }
+  .insight strong { color: var(--accent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Анализ рынка: ключевые слова Wordstat × тендеры</h1>
+    <div class="meta">
+      <span>Период Wordstat: 21.04–20.05.2026</span>
+      <span>Тендеры: TenderGuru API, выборка 2026-05-25/27</span>
+      <span>Тендеров проанализировано: 800+</span>
+      <span>Ключевых слов проверено: 30+</span>
+    </div>
+  </header>
+
+  <!-- Summary -->
+  <div class="section">
+    <div class="section-title">Общая картина</div>
+    <div class="section-subtitle">Суммарный спрос по ключевым сегментам (запросов/мес)</div>
+    <div class="cards">
+      <div class="card">
+        <div class="num">650k+</div>
+        <div class="label">Нормативная база (ГЭСН/ФЕР/ТЕР) — справочный трафик</div>
+      </div>
+      <div class="card">
+        <div class="num">111k</div>
+        <div class="label">Гранд-Смета — бренд конкурента</div>
+      </div>
+      <div class="card">
+        <div class="num">~60k</div>
+        <div class="label">Сметная документация — широкий категорийный запрос</div>
+      </div>
+      <div class="card">
+        <div class="num">~18k</div>
+        <div class="label">Горячий коммерческий спрос: составить/проверить смету</div>
+      </div>
+      <div class="card">
+        <div class="num">~8k</div>
+        <div class="label">Продуктовые запросы: ПО, автоматизация смет</div>
+      </div>
+      <div class="card">
+        <div class="num">~5k</div>
+        <div class="label">Классификация/автозаполнение — standalone B2B-модули</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- GROUP A -->
+  <div class="section">
+    <div class="section-title">
+      <span class="badge badge-a">Группа A</span>
+      Смежные с MVP по сметам
+    </div>
+    <div class="section-subtitle">Модули, которые расширяют смета-MVP на том же стеке</div>
+
+    <div class="modules">
+
+      <!-- Проверка сметы -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Проверка сметы на соответствие нормативам</div>
+          <div class="module-meta">
+            <span class="tenders">~61 тендер</span>
+            <span class="complexity medium">medium</span>
+            <span class="seo-yes">SEO ✓</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">проверка сметы</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:100%"><span>6 519</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">проверка сметной</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:99%"><span>6 465</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">экспертиза сметной стоимости</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:69%"><span>4 536</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>~17 500/мес суммарно.</strong> Самый сильный SEO-сигнал в группе A. Коммерческий интент — люди ищут инструмент или исполнителя. Отдельный лендинг «Проверить смету» окупается.</div>
+      </div>
+
+      <!-- RAG нормативы -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">RAG по нормативной базе (ГЭСН/ФЕР/ТЕР/СП)</div>
+          <div class="module-meta">
+            <span class="tenders">~59 тендеров</span>
+            <span class="complexity medium">medium</span>
+            <span class="seo-warn">SEO ⚠</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">ГЭСН</div>
+            <div class="bar-wrap"><div class="bar bar-amber" style="width:100%"><span>377 797</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">ФЕРы</div>
+            <div class="bar-wrap"><div class="bar bar-amber" style="width:38%"><span>145 431</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">ТЕРы</div>
+            <div class="bar-wrap"><div class="bar bar-amber" style="width:21%"><span>77 689</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">ФГИС ЦС</div>
+            <div class="bar-wrap"><div class="bar bar-amber" style="width:14%"><span>52 641</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">ГЭСН онлайн</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:1%"><span>134</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Объём огромный, но почти весь — справочный.</strong> Специалисты ищут сами нормативы, а не продукт. Конкурировать с Минстроем и КонсультантПлюс по «ГЭСН» нереально. Целевые запросы («ГЭСН онлайн» — 134/мес) микроскопические. Продукт продаётся через демо и тендеры.</div>
+      </div>
+
+      <!-- Генерация документов -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Генерация документа по шаблону (ЛСР, КС-2, КС-3)</div>
+          <div class="module-meta">
+            <span class="tenders">~26 тендеров</span>
+            <span class="complexity low">low</span>
+            <span class="seo-warn">SEO ⚠</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">сметная документация</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:100%"><span>41 148</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">проектно-сметная документация</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:50%"><span>20 685</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">разработка ПСД</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:7%"><span>2 788</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Высокий объём, смешанная аудитория.</strong> Большая часть — студенты и специалисты, ищущие образцы документов. SEO-контент (шаблоны, примеры ЛСР) привлечёт трафик, но конверсия в покупку будет низкой. «Разработка ПСД» (2 788) — ближе к коммерческому интенту.</div>
+      </div>
+
+      <!-- OCR -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">OCR + извлечение полей (чертёж/ТЗ → объёмы)</div>
+          <div class="module-meta">
+            <span class="tenders">~46 тендеров</span>
+            <span class="complexity medium">medium</span>
+            <span class="seo-no">SEO ✗</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">BIM смета</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:100%"><span>164</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">извлечение требований из документа</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:5%"><span>9</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Поисковый спрос почти нулевой.</strong> Потребность существует (46 тендеров), но покупатели не формулируют её через поиск. Канал продаж — демо, конференции BuildEX/SibBuild, прямые контакты с проектными организациями.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- GROUP B -->
+  <div class="section">
+    <div class="section-title">
+      <span class="badge badge-b">Группа B</span>
+      Высокочастотные самостоятельные модули
+    </div>
+    <div class="section-subtitle">Независимые продукты — не требуют сметной экспертизы</div>
+
+    <div class="modules">
+
+      <!-- Классификация -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Классификация + маршрутизация обращений</div>
+          <div class="module-meta">
+            <span class="tenders">~142 тендера</span>
+            <span class="complexity medium">medium</span>
+            <span class="seo-yes">SEO ✓</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">классификация обращений</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:100%"><span>2 395</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">маршрутизация обращений</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:8%"><span>202</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">автоматизация обращений граждан</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:4%"><span>92</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Самый сильный B2B-сигнал в группе B.</strong> «Классификация обращений» (2 395) — реальный коммерческий трафик. Аудитория: ЖКХ, МФЦ, call-центры, HR-службы. SEO-лендинг под этот запрос — приоритет.</div>
+      </div>
+
+      <!-- RPA -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">RPA-бот (перенос данных между системами)</div>
+          <div class="module-meta">
+            <span class="tenders">~77 тендеров</span>
+            <span class="complexity low">low</span>
+            <span class="seo-warn">SEO ⚠</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">RPA автоматизация</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:100%"><span>576</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">RPA бот</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:19%"><span>107</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>~680/мес — умеренный спрос.</strong> Рынок есть, но конкуренция высокая: PIX RPA, UiPath, ROBIN. Без уникального угла (например, готовые коннекторы к 1С/ГИС ЖКХ) сложно выделиться в SEO.</div>
+      </div>
+
+      <!-- Document Summarizer -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Document Summarizer (автозаполнение СЭД)</div>
+          <div class="module-meta">
+            <span class="tenders">~75 тендеров</span>
+            <span class="complexity low">low</span>
+            <span class="seo-yes">SEO ✓</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">автозаполнение документов</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:100%"><span>1 001</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">суммаризация документов</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:5%"><span>49</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Важный вывод по неймингу:</strong> «суммаризация» — технический жаргон (49/мес), покупатели говорят «автозаполнение» (1 001/мес). Называть продукт «автозаполнение документов», не «суммаризатор». Интеграции: Directum, 1С-Документооборот, СБИС.</div>
+      </div>
+
+      <!-- Chatbot -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Chatbot для граждан (муниципалитеты)</div>
+          <div class="module-meta">
+            <span class="tenders">~71 тендер</span>
+            <span class="complexity low">low</span>
+            <span class="seo-no">SEO ✗</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">чат бот для сайта</div>
+            <div class="bar-wrap"><div class="bar bar-blue" style="width:100%"><span>753</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">чат бот для граждан</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:16%"><span>117</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">чат бот муниципалитет</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:2%"><span>12</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>Госзаказчики не ищут это в Яндексе.</strong> «Чат бот муниципалитет» — 12/мес. Канал — только тендеры и прямые продажи. «Чат бот для сайта» (753) — B2B-сегмент с другой аудиторией и высокой конкуренцией (Jivo, Carrot Quest).</div>
+      </div>
+
+      <!-- Мониторинг НПА -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Мониторинг изменений на портале + алерт</div>
+          <div class="module-meta">
+            <span class="tenders">~38 тендеров</span>
+            <span class="complexity low">low</span>
+            <span class="seo-yes">SEO ✓</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">анализ НПА</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:100%"><span>772</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">мониторинг изменений законодательства</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:78%"><span>602</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>~1 400/мес — неожиданно сильный сигнал.</strong> Аудитория: юристы, закупщики, комплаенс. SEO-статьи про автоматический мониторинг НПА + кейсы могут давать стабильный органический трафик.</div>
+      </div>
+
+      <!-- Regulatory Analyzer -->
+      <div class="module">
+        <div class="module-header">
+          <div class="module-name">Regulatory Document Analyzer (НПА → требования)</div>
+          <div class="module-meta">
+            <span class="tenders">~16 тендеров</span>
+            <span class="complexity medium">medium</span>
+            <span class="seo-warn">SEO ⚠</span>
+          </div>
+        </div>
+        <div class="kw-list">
+          <div class="kw-row">
+            <div class="kw-label">анализ НПА</div>
+            <div class="bar-wrap"><div class="bar bar-green" style="width:100%"><span>772</span></div></div>
+          </div>
+          <div class="kw-row">
+            <div class="kw-label">извлечение требований из документа</div>
+            <div class="bar-wrap"><div class="bar bar-gray" style="width:1%"><span>9</span></div></div>
+          </div>
+        </div>
+        <div class="verdict"><strong>«Анализ НПА» (772) — реальный спрос</strong>, но пересекается с модулем мониторинга. Покупатели ищут «анализ НПА», а не «извлечение требований». Узкая ниша, высокий ARPU: юридические службы, стройнадзор, экспертизы.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Smeta MVP -->
+  <div class="section">
+    <div class="section-title">Смета MVP — полная таблица запросов</div>
+    <div class="section-subtitle">Все проверенные ключевые слова по сметному рынку</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th>Ключевое слово</th>
+            <th>Запросов/мес</th>
+            <th>Тип</th>
+            <th>Для MVP</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>гранд смета</td><td class="num-cell big">111 211</td><td>brand-конкурент</td><td>❌ чужой бренд</td></tr>
+          <tr><td>составление смет</td><td class="num-cell big">16 688</td><td>category</td><td>⚠️ широкий, SEO-контент</td></tr>
+          <tr><td>проверка сметы</td><td class="num-cell big">6 519</td><td>commercial</td><td>✅ отдельный лендинг</td></tr>
+          <tr><td>проверка сметной</td><td class="num-cell big">6 465</td><td>commercial</td><td>✅ отдельный лендинг</td></tr>
+          <tr><td>экспертиза сметной стоимости</td><td class="num-cell mid">4 536</td><td>commercial</td><td>✅ отдельный лендинг</td></tr>
+          <tr><td>смета ремонта квартиры</td><td class="num-cell mid">3 654</td><td>B2C</td><td>⚠️ B2C, другая аудитория</td></tr>
+          <tr><td>сметная программа</td><td class="num-cell mid">3 152</td><td>category</td><td>✅ целевой запрос</td></tr>
+          <tr><td>автоматическая смета</td><td class="num-cell mid">2 843</td><td>intent</td><td>✅ главный запрос MVP</td></tr>
+          <tr><td>разработка ПСД</td><td class="num-cell mid">2 788</td><td>commercial</td><td>⚠️ другой сегмент</td></tr>
+          <tr><td>составить смету онлайн</td><td class="num-cell low-num">872</td><td>transactional</td><td>✅ горячий трафик</td></tr>
+          <tr><td>сметный калькулятор</td><td class="num-cell low-num">601</td><td>tool</td><td>✅ инструментальный</td></tr>
+          <tr><td>составить смету онлайн бесплатно</td><td class="num-cell low-num">461</td><td>freemium</td><td>⚠️ freemium-аудитория</td></tr>
+          <tr><td>ГЭСН онлайн</td><td class="num-cell low-num">134</td><td>normative</td><td>⚠️ нишевой</td></tr>
+          <tr><td>BIM смета</td><td class="num-cell low-num">164</td><td>tech</td><td>⚠️ узкий</td></tr>
+          <tr><td>смета по описанию</td><td class="num-cell low-num">92</td><td>intent</td><td>✅ прямое попадание</td></tr>
+          <tr><td>генерация сметы</td><td class="num-cell low-num">34</td><td>intent</td><td>❌ так не ищут</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Priority matrix -->
+  <div class="section">
+    <div class="section-title">Матрица приоритетов: SEO vs Тендеры</div>
+    <div class="section-subtitle">По каждому модулю — оптимальный канал продаж</div>
+    <div class="matrix">
+      <div class="priority-block p1">
+        <h3>✅ SEO + Тендеры (лучшие кандидаты)</h3>
+        <ul>
+          <li>Проверка сметы <span class="kw">6 500/мес · 61 тендер</span></li>
+          <li>Классификация обращений <span class="kw">2 400/мес · 142 тендера</span></li>
+          <li>Автоматическая смета <span class="kw">2 843/мес · MVP</span></li>
+          <li>Мониторинг НПА + алерт <span class="kw">1 400/мес · 38 тендеров</span></li>
+          <li>Автозаполнение документов <span class="kw">1 000/мес · 75 тендеров</span></li>
+        </ul>
+      </div>
+      <div class="priority-block p2">
+        <h3>📈 SEO-контент (трафик есть, конверсия ниже)</h3>
+        <ul>
+          <li>Сметная документация <span class="kw">41k/мес, образовательный</span></li>
+          <li>Составить смету онлайн <span class="kw">872/мес · transactional</span></li>
+          <li>RPA автоматизация <span class="kw">576/мес · конкуренция</span></li>
+          <li>Анализ НПА <span class="kw">772/мес · юристы</span></li>
+        </ul>
+      </div>
+      <div class="priority-block p3">
+        <h3>⚠️ Только тендеры (поиска почти нет)</h3>
+        <ul>
+          <li>Chatbot для граждан <span class="kw">12/мес · 71 тендер</span></li>
+          <li>OCR извлечение полей <span class="kw">&lt;10/мес · 46 тендеров</span></li>
+          <li>Корпоративный RAG/LLM <span class="kw">on-premise · 15+ тендеров</span></li>
+        </ul>
+      </div>
+      <div class="priority-block p4">
+        <h3>❌ Нереалистичные запросы</h3>
+        <ul>
+          <li>ГЭСН / ФЕРы / ТЕРы <span class="kw">650k/мес — Минстрой</span></li>
+          <li>Гранд-Смета <span class="kw">111k/мес — чужой бренд</span></li>
+          <li>Генерация сметы <span class="kw">34/мес — так не ищут</span></li>
+          <li>Медицинский AI <span class="kw">высокий барьер входа</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Key insights -->
+  <div class="section">
+    <div class="section-title">Ключевые инсайты</div>
+    <div class="section-subtitle">Неочевидные выводы из сопоставления Wordstat и тендерных данных</div>
+
+    <div class="insight">
+      <strong>Нейминг решает:</strong> «суммаризация документов» — 49/мес, «автозаполнение документов» — 1 001/мес. Один и тот же продукт, разное название — разница в 20x по охвату. Всегда называть продукт языком покупателя, не разработчика.
+    </div>
+    <div class="insight">
+      <strong>Госзаказчики не гуглят:</strong> «чат бот муниципалитет» — 12/мес, «автоматизация обращений граждан» — 92/мес. Тендерный рынок (71 тендер!) существует параллельно с поисковым — SEO там не работает, нужны прямые продажи и участие в тендерах.
+    </div>
+    <div class="insight">
+      <strong>ГЭСН/ФЕРы — ловушка:</strong> суммарно 650k+ запросов в месяц, но это справочная аудитория, которая ищет сами нормативы у Минстроя и КонсультантПлюс. Конкурировать бессмысленно. Целевых запросов («ГЭСН онлайн», «ГЭСН калькулятор») — не более 500/мес.
+    </div>
+    <div class="insight">
+      <strong>«Проверка сметы» — недооценённый модуль:</strong> 13 000/мес суммарного спроса (проверка сметы + проверка сметной + экспертиза сметной стоимости), 61 тендер. Можно запустить как самостоятельный MVP — быстрее и проще, чем полная генерация смет.
+    </div>
+    <div class="insight">
+      <strong>Мониторинг НПА — неожиданный SEO-кандидат:</strong> «анализ НПА» (772) + «мониторинг изменений законодательства» (602) = ~1 400/мес. Модуль технически прост (cron + diff + webhook), но имеет реальный поисковый спрос от юристов и закупщиков.
+    </div>
+  </div>
+
+  <footer style="border-top:1px solid var(--border);padding-top:24px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;">
+    <span>Данные: Yandex Wordstat (21.04–20.05.2026) + TenderGuru API</span>
+    <span>Сгенерировано: 2026-05-27</span>
+  </footer>
+
+</div>
+</body>
+</html>

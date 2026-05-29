@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import http from 'node:http';
+import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import { loadDotEnv } from '../src/env.js';
 import {
@@ -15,6 +17,10 @@ import {
 
 loadDotEnv();
 
+if (typeof http.setGlobalProxyFromEnv === 'function') {
+  http.setGlobalProxyFromEnv();
+}
+
 const execFileAsync = promisify(execFile);
 const runDate = getArg('date', '2026-05-25');
 const inputPath = getArg('input', `data/processed/${runDate}/classified-tenders.csv`);
@@ -24,20 +30,52 @@ const manifestJsonlPath = getArg('manifest-jsonl', `data/raw/tenderguru/${runDat
 const maxPerTender = Number(getArg('max-per-tender', '20'));
 const maxDepth = Number(getArg('max-depth', '3'));
 const onlyTender = getArg('only', '');
-const includeSourceLinks = getArg('include-source-links', '0') === '1';
+const keepAllDocs = getBoolArg('keep-all-docs', false);
 const cookieJar = new Map();
+const proxyUrl = getProxyUrl();
+const useCurlProxy = isSocksProxy(proxyUrl);
+const curlTempDirPromise = useCurlProxy
+  ? mkdtemp(join(tmpdir(), 'tenderguru-curl-'))
+  : Promise.resolve('');
+const discardedPaths = new Set();
+const technicalAssignmentNamePatterns = [
+  /(?:^|[^a-z0-9])tz(?:[^a-z0-9]|$)/i,
+  /(?:^|[^a-z0-9])chtz(?:[^a-z0-9]|$)/i,
+  /tehnicheskoe[-_\s]+zadanie/i,
+  /tekhnicheskoe[-_\s]+zadanie/i,
+  /technical[-_\s]+assignment/i,
+  /opisanie[-_\s]+obekta[-_\s]+zakupki/i,
+  /prilozhenie[-_\s]+.*(?:tehnicheskoe[-_\s]+zadanie|opisanie[-_\s]+obekta[-_\s]+zakupki)/i,
+];
+const nonTechnicalAssignmentNamePatterns = [
+  /proekt\s+dogovora/i,
+  /dogovor/i,
+  /contract/i,
+  /proekt\s+kontrakta/i,
+  /kontrakt/i,
+  /protokol/i,
+  /soglashen/i,
+];
+const nonTechnicalAssignmentTextPatterns = [
+  /^лицензионный\s+договор\b/i,
+  /^проект\s+договора\b/i,
+  /^проект\s+контракта\b/i,
+  /^договор\b/i,
+  /^контракт\b/i,
+];
 
 ensureDir(outputDir);
 
+const onlyTenderIds = parseOnlyIds(onlyTender);
 const rows = parseCsv(await readFile(inputPath, 'utf8'))
-  .filter((row) => !onlyTender || [row.tender_id, row.tenderguru_card_id].includes(onlyTender));
+  .filter((row) => onlyTenderIds.length === 0 || [row.tender_id, row.tenderguru_card_id].some((id) => onlyTenderIds.includes(id)));
 const manifest = [];
 
-for (const row of rows) {
-  const links = extractLinks(row)
-    .filter(Boolean)
-    .filter((url, index, array) => array.indexOf(url) === index)
-    .slice(0, maxPerTender);
+  for (const row of rows) {
+    const links = extractLinks(row)
+      .filter(Boolean)
+      .filter((url, index, array) => array.indexOf(url) === index)
+      .slice(0, maxPerTender);
 
   if (links.length === 0) {
     manifest.push(manifestRow(row, null, 'no_links', 'No document links found'));
@@ -46,6 +84,7 @@ for (const row of rows) {
 
   const tenderDir = join(outputDir, safeName(row.tender_id || row.tenderguru_card_id || 'unknown'));
   await mkdir(tenderDir, { recursive: true });
+  const seenPaths = new Set();
 
   for (let index = 0; index < links.length; index += 1) {
     const url = links[index];
@@ -53,17 +92,21 @@ for (const row of rows) {
 
     if (existsSync(targetPath)) {
       manifest.push(manifestRow(row, url, 'exists', '', targetPath));
-      await expandDownloadedFile(row, url, targetPath, tenderDir, manifest, 0);
+      await expandDownloadedFile(row, url, targetPath, tenderDir, manifest, 0, seenPaths);
       continue;
     }
 
     try {
       const result = await download(url, targetPath, { referer: url });
       manifest.push(manifestRow(row, url, 'downloaded', result.contentType, targetPath, result.bytes));
-      await expandDownloadedFile(row, url, targetPath, tenderDir, manifest, 0);
+      await expandDownloadedFile(row, url, targetPath, tenderDir, manifest, 0, seenPaths);
     } catch (error) {
       manifest.push(manifestRow(row, url, 'error', cleanText(error.message), targetPath));
     }
+  }
+
+  if (!keepAllDocs) {
+    await cleanupTenderDir(tenderDir);
   }
 }
 
@@ -85,11 +128,14 @@ function extractLinks(row) {
     .flatMap((value) => String(value || '').split(/\s+\|\s+/))
     .map((value) => value.trim())
     .filter((value) => /^https?:\/\//i.test(value))
-    .filter((value) => !/api_code=/i.test(value))
-    .filter((value) => includeSourceLinks || !/zakupki\.gov\.ru/i.test(value));
+    .filter((value) => !/api_code=/i.test(value));
 }
 
 async function download(url, targetPath, { referer = '' } = {}) {
+  if (useCurlProxy) {
+    return downloadWithCurl(url, targetPath, { referer });
+  }
+
   const response = await fetchWithCookies(url, { referer });
 
   if (!response.ok) {
@@ -114,6 +160,69 @@ async function download(url, targetPath, { referer = '' } = {}) {
   }, null, 2), 'utf8');
 
   return { contentType, bytes };
+}
+
+async function downloadWithCurl(url, targetPath, { referer = '' } = {}) {
+  const host = new URL(url).host;
+  const tempDir = await curlTempDirPromise;
+  const headerPath = join(tempDir, `${safeName(host)}-${Date.now()}-${Math.random().toString(16).slice(2)}.headers`);
+  const curlProxy = normalizeSocksProxyUrl(proxyUrl);
+  const cookie = cookieJar.get(host) || '';
+
+  const args = [
+    '-sS',
+    '-L',
+    '--connect-timeout',
+    '30',
+    '--max-time',
+    '30',
+    '--user-agent',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    '--header',
+    'Accept: */*',
+    '--dump-header',
+    headerPath,
+    '--output',
+    targetPath,
+    '--write-out',
+    '__CURL_META__%{content_type}\t%{url_effective}\n',
+    '--proxy',
+    curlProxy,
+  ];
+
+  if (cookie) {
+    args.push('--cookie', cookie);
+  }
+
+  if (referer) {
+    args.push('--referer', referer);
+  }
+
+  args.push(url);
+
+  try {
+    const { stdout } = await execFileAsync('curl', args, { maxBuffer: 2 * 1024 * 1024 });
+    const metaLine = String(stdout || '')
+      .split(/\r?\n/)
+      .find((line) => line.startsWith('__CURL_META__')) || '';
+    const [, contentType = '', finalUrl = ''] = metaLine.replace('__CURL_META__', '').split('\t');
+    const headerText = await readFile(headerPath, 'utf8');
+    storeCookiesFromHeaderLines(new URL(finalUrl || url).host, headerText);
+    const bytes = String((await stat(targetPath)).size);
+
+    await writeFile(`${targetPath}.meta.json`, JSON.stringify({
+      source_url: redactSecrets(url),
+      final_url: redactSecrets(finalUrl || url),
+      content_type: contentType,
+      content_length: bytes,
+    }, null, 2), 'utf8');
+
+    await rm(headerPath, { force: true });
+    return { contentType, bytes };
+  } catch (error) {
+    await rm(headerPath, { force: true });
+    throw new Error(cleanText(error.stderr || error.message || 'curl failed'));
+  }
 }
 
 async function fetchWithCookies(url, { referer = '' } = {}) {
@@ -158,23 +267,74 @@ function storeCookies(host, headers) {
   cookieJar.set(host, [...current.entries()].map(([name, value]) => `${name}=${value}`).join('; '));
 }
 
+function storeCookiesFromHeaderLines(host, headerText) {
+  const current = new Map(
+    String(cookieJar.get(host) || '')
+      .split(/;\s*/)
+      .filter(Boolean)
+      .map((pair) => pair.split('=', 2)),
+  );
+
+  for (const line of String(headerText || '').split(/\r?\n/)) {
+    const match = line.match(/^set-cookie:\s*([^=;\s]+)=([^;]*)/i);
+    if (!match) continue;
+    const [, name, value] = match;
+    current.set(name.trim(), value.trim());
+  }
+
+  if (!current.size) return;
+
+  cookieJar.set(host, [...current.entries()].map(([name, value]) => `${name}=${value}`).join('; '));
+}
+
 async function expandDownloadedFile(row, sourceUrl, filePath, tenderDir, manifest, depth, seen = new Set()) {
-  if (depth >= maxDepth || seen.has(filePath)) return;
-  seen.add(filePath);
+  if (depth >= maxDepth) return;
 
-  const kind = await detectFileKind(filePath);
-
-  if (kind === 'docx') {
-    await extractDocxText(row, sourceUrl, filePath, manifest);
+  if (seen.has(filePath)) {
+    if (discardedPaths.has(filePath)) {
+      await removeArtifact(filePath);
+      await removeArtifact(`${filePath}.meta.json`);
+      await removeArtifact(`${filePath}.txt`);
+    }
     return;
   }
 
-  if (kind !== 'html') return;
+  seen.add(filePath);
+
+  const kind = await detectFileKind(filePath);
+  const baseName = basename(filePath);
+
+  if (kind === 'docx') {
+    const textPath = `${filePath}.txt`;
+    const text = await extractDocxText(row, sourceUrl, filePath, manifest);
+    const keep = keepAllDocs || isTechnicalAssignmentFile(sourceUrl, baseName, text);
+
+    if (!keep) {
+      await removeArtifact(filePath);
+      await removeArtifact(`${filePath}.meta.json`);
+      await removeArtifact(textPath);
+      discardedPaths.add(filePath);
+      manifest.push(manifestRow(row, sourceUrl, 'skipped', 'Not a technical assignment document', filePath, '', sourceUrl));
+    }
+
+    return;
+  }
+
+  if (kind !== 'html') {
+    if (!keepAllDocs && !isTechnicalAssignmentFile(sourceUrl, baseName, '')) {
+      await removeArtifact(filePath);
+      await removeArtifact(`${filePath}.meta.json`);
+      discardedPaths.add(filePath);
+      manifest.push(manifestRow(row, sourceUrl, 'skipped', 'Not a technical assignment document', filePath, '', sourceUrl));
+    }
+    return;
+  }
 
   const html = await readHtml(filePath);
   const childLinks = extractViewerLinks(html, sourceUrl)
-    .filter((url, index, array) => array.indexOf(url) === index)
-    .filter((url) => !/zakupki\.gov\.ru/i.test(url));
+    .filter((url, index, array) => array.indexOf(url) === index);
+
+  const keep = isTechnicalAssignmentFile(sourceUrl, baseName, html);
 
   for (let index = 0; index < childLinks.length; index += 1) {
     const childUrl = childLinks[index];
@@ -194,6 +354,13 @@ async function expandDownloadedFile(row, sourceUrl, filePath, tenderDir, manifes
     } catch (error) {
       manifest.push(manifestRow(row, childUrl, 'error', cleanText(error.message), targetPath, '', sourceUrl));
     }
+  }
+
+  if (!keep) {
+    await removeArtifact(filePath);
+    await removeArtifact(`${filePath}.meta.json`);
+    discardedPaths.add(filePath);
+    manifest.push(manifestRow(row, sourceUrl, 'skipped', 'Not a technical assignment document', filePath, '', sourceUrl));
   }
 }
 
@@ -218,8 +385,10 @@ async function extractDocxText(row, sourceUrl, docxPath, manifest) {
 
     await writeFile(textPath, `${text}\n`, 'utf8');
     manifest.push(manifestRow(row, sourceUrl, 'text_extracted', '', textPath, Buffer.byteLength(text), docxPath));
+    return text;
   } catch (error) {
     manifest.push(manifestRow(row, sourceUrl, 'text_error', cleanText(error.message), textPath, '', docxPath));
+    return '';
   }
 }
 
@@ -420,6 +589,70 @@ function safeName(value) {
   return String(value || 'unknown').replace(/[^a-zA-Zа-яА-Я0-9_.-]+/g, '_');
 }
 
+async function removeArtifact(path) {
+  await rm(path, { force: true });
+}
+
+async function cleanupTenderDir(rootDir) {
+  const entries = await readDirRecursive(rootDir);
+  const baseEntries = entries.filter((entryPath) => !entryPath.endsWith('.meta.json') && !entryPath.endsWith('.txt'));
+
+  for (const entryPath of baseEntries) {
+    if (await shouldKeepArtifact(entryPath)) {
+      continue;
+    }
+
+    await removeArtifact(entryPath);
+    await removeArtifact(`${entryPath}.meta.json`);
+    await removeArtifact(`${entryPath}.txt`);
+  }
+}
+
+async function shouldKeepArtifact(filePath) {
+  const fileName = basename(filePath);
+  const normalizedName = normalizeForMatch(fileName);
+  if (nonTechnicalAssignmentNamePatterns.some((pattern) => pattern.test(normalizedName))) {
+    return false;
+  }
+
+  if (technicalAssignmentNamePatterns.some((pattern) => pattern.test(normalizedName))) {
+    return true;
+  }
+
+  const textPath = `${filePath}.txt`;
+  if (!existsSync(textPath)) return false;
+
+  try {
+    const text = await readFile(textPath, 'utf8');
+    return isTechnicalAssignmentFile('', fileName, text);
+  } catch {
+    return false;
+  }
+}
+
+async function readDirRecursive(rootDir) {
+  const { readdir, stat } = await import('node:fs/promises');
+  const result = [];
+
+  async function walk(dir) {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        result.push(fullPath);
+      }
+    }
+  }
+
+  await walk(rootDir);
+  return result;
+}
+
 function parseCsv(content) {
   const rows = [];
   const records = [];
@@ -477,4 +710,74 @@ function parseCsv(content) {
 function getArg(name, fallback) {
   const prefix = `--${name}=`;
   return process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length) || fallback;
+}
+
+function getBoolArg(name, fallback) {
+  const prefix = `--${name}=`;
+  const value = process.argv.find((arg) => arg.startsWith(prefix))?.slice(prefix.length);
+  if (value === undefined) return fallback;
+  return /^(1|true|yes|on)$/i.test(value);
+}
+
+function parseOnlyIds(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim().replace(/^"|"$/g, ''))
+    .filter(Boolean);
+}
+
+function isTechnicalAssignmentFile(sourceUrl, fileName, text) {
+  const normalizedName = normalizeForMatch(`${sourceUrl} ${fileName}`);
+  if (nonTechnicalAssignmentNamePatterns.some((pattern) => pattern.test(normalizedName))) {
+    return false;
+  }
+
+  const normalizedText = normalizeForMatch(String(text || ''));
+  const head = normalizedText.slice(0, 5000);
+  if (nonTechnicalAssignmentTextPatterns.some((pattern) => pattern.test(head))) {
+    return false;
+  }
+
+  if (technicalAssignmentNamePatterns.some((pattern) => pattern.test(normalizedName))) {
+    return true;
+  }
+
+  if (!normalizedText) return false;
+  return (
+    /^техническое\s+задание\b/i.test(head)
+    || /^частное\s+техническое\s+задание\b/i.test(head)
+    || /^описание\s+объекта\s+закупки\b/i.test(head)
+    || /\bтехническое\s+задание\b/i.test(head)
+    || /\bчастное\s+техническое\s+задание\b/i.test(head)
+    || /\bописание\s+объекта\s+закупки\b/i.test(head)
+    || /\bчтз\b/i.test(head.slice(0, 1500))
+  );
+}
+
+function normalizeForMatch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[`'’"«»]/g, ' ')
+    .replace(/[_./\\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+
+function getProxyUrl() {
+  return process.env.ALL_PROXY
+    || process.env.all_proxy
+    || process.env.HTTPS_PROXY
+    || process.env.https_proxy
+    || process.env.HTTP_PROXY
+    || process.env.http_proxy
+    || '';
+}
+
+function isSocksProxy(value) {
+  return /^socks(?:4a?|5h?)?:\/\//i.test(String(value || ''));
+}
+
+function normalizeSocksProxyUrl(value) {
+  return String(value || '').replace(/^socks5:\/\//i, 'socks5h://');
 }

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Стратегические инсайты и рекомендации</title>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #131827;
+    --bg3: #1c2235;
+    --border: #2a3148;
+    --border-soft: #1f2638;
+    --accent: #8b5cf6;
+    --accent2: #06b6d4;
+    --success: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .page { max-width: 1100px; margin: 0 auto; padding: 60px 24px; }
+
+  /* Header */
+  .hero {
+    text-align: center;
+    margin-bottom: 80px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding: 4px 12px;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 20px;
+  }
+  h1 {
+    font-size: 42px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    letter-spacing: -0.02em;
+  }
+  .lede {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .meta-row {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 28px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .meta-row span { display: flex; align-items: center; gap: 6px; }
+  .meta-row span::before { content: ''; width: 4px; height: 4px; background: var(--accent); border-radius: 50%; }
+
+  /* TL;DR */
+  .tldr {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(6, 182, 212, 0.05));
+    border: 1px solid rgba(139, 92, 246, 0.2);
+    border-radius: 20px;
+    padding: 36px 40px;
+    margin-bottom: 80px;
+  }
+  .tldr-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+  .tldr-points { display: grid; gap: 20px; }
+  .tldr-point {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .tldr-num {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+  }
+  .tldr-text { font-size: 16px; color: var(--text); }
+  .tldr-text strong { color: #fff; }
+
+  /* Section */
+  .section { margin-bottom: 80px; }
+  .section-header { margin-bottom: 40px; }
+  .section-num {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .section-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    margin-top: 6px;
+    letter-spacing: -0.01em;
+  }
+  .section-sub { color: var(--text-dim); margin-top: 6px; }
+
+  /* Insight cards */
+  .insights { display: grid; gap: 24px; }
+  .insight {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .insight::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent);
+  }
+  .insight.gold::before { background: var(--warn); }
+  .insight.green::before { background: var(--success); }
+  .insight.red::before { background: var(--danger); }
+  .insight.cyan::before { background: var(--accent2); }
+
+  .insight-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .insight-num {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--accent);
+    background: rgba(139, 92, 246, 0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+  }
+  .insight.gold .insight-num { color: var(--warn); background: rgba(245, 158, 11, 0.1); }
+  .insight.green .insight-num { color: var(--success); background: rgba(16, 185, 129, 0.1); }
+  .insight.red .insight-num { color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+  .insight.cyan .insight-num { color: var(--accent2); background: rgba(6, 182, 212, 0.1); }
+
+  .insight-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.01em;
+  }
+  .insight-body { color: var(--text-dim); margin-bottom: 20px; }
+  .insight-body strong { color: var(--text); }
+
+  /* Comparison table inside insight */
+  .compare {
+    background: var(--bg3);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 16px;
+  }
+  .compare table { width: 100%; border-collapse: collapse; }
+  .compare th, .compare td {
+    padding: 10px 16px;
+    text-align: left;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .compare th {
+    background: rgba(0,0,0,0.2);
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+  .compare tr:last-child td { border-bottom: none; }
+  .compare .num { text-align: right; font-weight: 700; font-family: 'SF Mono', monospace; }
+  .compare .num.big { color: var(--success); }
+  .compare .num.mid { color: var(--warn); }
+  .compare .num.low { color: var(--muted); }
+  .compare .mult { color: var(--accent); font-weight: 800; }
+  .compare .vs-row td { padding: 6px 16px; font-size: 11px; color: var(--muted); background: rgba(0,0,0,0.15); }
+
+  .takeaway {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: rgba(139, 92, 246, 0.05);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .gold .takeaway { background: rgba(245, 158, 11, 0.05); border-left-color: var(--warn); }
+  .green .takeaway { background: rgba(16, 185, 129, 0.05); border-left-color: var(--success); }
+  .red .takeaway { background: rgba(239, 68, 68, 0.05); border-left-color: var(--danger); }
+  .cyan .takeaway { background: rgba(6, 182, 212, 0.05); border-left-color: var(--accent2); }
+  .takeaway strong { color: #fff; }
+
+  /* Priority levels */
+  .levels { display: grid; gap: 20px; }
+  .level {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+  }
+  .level-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px dashed var(--border-soft);
+  }
+  .level-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .level-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 18px;
+    color: #fff;
+  }
+  .level1 .level-badge { background: linear-gradient(135deg, var(--success), #059669); }
+  .level2 .level-badge { background: linear-gradient(135deg, var(--accent2), #0891b2); }
+  .level3 .level-badge { background: linear-gradient(135deg, var(--warn), #d97706); }
+  .level4 .level-badge { background: linear-gradient(135deg, var(--muted), #475569); }
+  .level-name { font-size: 18px; font-weight: 700; color: #fff; }
+  .level-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .level-when { font-size: 12px; color: var(--text-dim); padding: 6px 12px; background: var(--bg3); border-radius: 20px; }
+
+  .products { display: grid; gap: 10px; }
+  .product {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    padding: 14px 18px;
+    background: var(--bg3);
+    border-radius: 10px;
+    border: 1px solid var(--border-soft);
+  }
+  .product-name { font-weight: 600; color: var(--text); font-size: 14px; }
+  .product-why { color: var(--text-dim); font-size: 12px; margin-top: 2px; }
+  .product-stat {
+    text-align: right;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'SF Mono', monospace;
+  }
+  .product-stat span { display: block; }
+  .product-stat .label { font-size: 10px; color: var(--muted); }
+  .product-stat .value { font-weight: 700; color: var(--text); font-size: 13px; }
+
+  /* Action plan */
+  .timeline {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+  }
+  .timeline-list { display: grid; gap: 20px; position: relative; }
+  .timeline-list::before {
+    content: '';
+    position: absolute;
+    left: 23px;
+    top: 12px;
+    bottom: 12px;
+    width: 2px;
+    background: var(--border);
+  }
+  .step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 20px;
+    align-items: start;
+    position: relative;
+  }
+  .step-circle {
+    width: 48px;
+    height: 48px;
+    background: var(--bg);
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: var(--accent);
+    z-index: 1;
+  }
+  .step-content {
+    padding-top: 8px;
+  }
+  .step-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .step-desc { color: var(--text-dim); font-size: 14px; }
+  .step-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(139, 92, 246, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 8px;
+  }
+
+  /* Antipatterns */
+  .antipatterns { display: grid; gap: 12px; }
+  .antipattern {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 14px 18px;
+    background: rgba(239, 68, 68, 0.04);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    border-radius: 10px;
+  }
+  .antipattern::before {
+    content: '✕';
+    color: var(--danger);
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .antipattern-text { color: var(--text); font-size: 14px; }
+  .antipattern-text strong { color: var(--danger); }
+
+  /* Stats bar */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 60px;
+  }
+  .stat {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .stat-label { font-size: 12px; color: var(--text-dim); }
+
+  /* Footer */
+  footer {
+    margin-top: 80px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border-soft);
+    color: var(--muted);
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="eyebrow">Стратегический синтез</div>
+    <h1>Инсайты и рекомендации<br>по выбору AI-продукта для запуска</h1>
+    <p class="lede">Синтез 800+ тендеров TenderGuru, 30+ ключевых слов Wordstat и 7 предыдущих исследований — в одной странице с действиями.</p>
+    <div class="meta-row">
+      <span>800+ тендеров проанализировано</span>
+      <span>22 млрд руб бюджеты</span>
+      <span>30+ Wordstat-запросов</span>
+      <span>2026-05-27</span>
+    </div>
+  </header>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">5</div>
+      <div class="stat-label">модулей с двойным каналом (тендеры + поиск)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">4%</div>
+      <div class="stat-label">сметного рынка приходится на ПО</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">20×</div>
+      <div class="stat-label">разница в трафике из-за нейминга</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">17.5k</div>
+      <div class="stat-label">поисков/мес для «проверки сметы»</div>
+    </div>
+  </div>
+
+  <!-- TLDR -->
+  <div class="tldr">
+    <div class="tldr-title">Три вывода, которые меняют стратегию</div>
+    <div class="tldr-points">
+      <div class="tldr-point">
+        <div class="tldr-num">1</div>
+        <div class="tldr-text"><strong>Тендеры и поиск — два независимых канала.</strong> Самые крупные тендерные ниши (chatbot муниципалитет, OCR) почти не имеют поискового спроса. Самые сильные поисковые сегменты (ГЭСН, ФЕРы) — справочный трафик, который нельзя монетизировать.</div>
+      </div>
+      <div class="tldr-point">
+        <div class="tldr-num">2</div>
+        <div class="tldr-text"><strong>«Проверка сметы» — недооценённый flagship.</strong> 61 тендер на 6.2 млрд руб + 17 500 поисков/мес = единственный двойной канал в сметной вертикали. Сильнее «генерации смет» по обоим параметрам.</div>
+      </div>
+      <div class="tldr-point">
+        <div class="tldr-num">3</div>
+        <div class="tldr-text"><strong>Нейминг важнее технологии.</strong> «Автозаполнение документов» (1 001/мес) vs «суммаризация» (49/мес) — разница в 20× при одной и той же реализации. Называть продукт языком покупателя, не разработчика.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">Часть 1</div>
+      <h2 class="section-title">6 ключевых инсайтов</h2>
+      <p class="section-sub">Каждый — это результат пересечения нескольких независимых источников данных.</p>
+    </div>
+
+    <div class="insights">
+
+      <!-- Insight 1 -->
+      <div class="insight">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #1</div>
+          <div class="insight-title">Парадокс «нет поиска ≠ нет рынка»</div>
+        </div>
+        <div class="insight-body">
+          Тендеры и Яндекс — две параллельные вселенные. Госзаказчики не гуглят то, что покупают через 44-ФЗ. А специалисты, которые гуглят «ГЭСН», не являются покупателями ПО.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Модуль</th><th class="num">Тендеры</th><th class="num">Поиск/мес</th><th>Интерпретация</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Chatbot для граждан</td><td class="num mid">71</td><td class="num low">12</td><td>Большой тендерный рынок, нулевой поиск</td></tr>
+              <tr><td>OCR / извлечение полей</td><td class="num mid">46</td><td class="num low">&lt;10</td><td>Покупают, но не гуглят</td></tr>
+              <tr><td>ГЭСН / ФЕРы (справочник)</td><td class="num low">—</td><td class="num big">650 000+</td><td>Огромный поиск, нет продукта</td></tr>
+              <tr><td>Гранд-Смета (бренд)</td><td class="num low">—</td><td class="num big">111 000</td><td>Чужой бренд, не наш канал</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Вывод:</strong> высокий поиск без тендеров = информационный трафик. Тендеры без поиска = госзаказчик, для которого SEO бесполезен. Двойной канал — редкость, и именно он стоит дорого.</div>
+      </div>
+
+      <!-- Insight 2 -->
+      <div class="insight green">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #2</div>
+          <div class="insight-title">5 модулей с двойным каналом — лучшие кандидаты</div>
+        </div>
+        <div class="insight-body">
+          Среди всех проанализированных модулей только 5 закрывают одновременно B2G-тендеры и B2B/SMB-поиск. Это позволяет строить компанию на двух ногах: тендеры дают крупные чеки, SEO — стабильный поток лидов.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Модуль</th><th class="num">Тендеры</th><th>Запрос</th><th class="num">Поиск/мес</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Проверка сметы</strong></td><td class="num mid">61</td><td>проверка сметы</td><td class="num big">6 519</td></tr>
+              <tr><td><strong>Классификация обращений</strong></td><td class="num big">142</td><td>классификация обращений</td><td class="num mid">2 395</td></tr>
+              <tr><td><strong>Автоматическая смета (MVP)</strong></td><td class="num mid">27</td><td>автоматическая смета</td><td class="num mid">2 843</td></tr>
+              <tr><td><strong>Мониторинг НПА</strong></td><td class="num mid">38</td><td>анализ НПА</td><td class="num mid">772</td></tr>
+              <tr><td><strong>Document Summarizer</strong></td><td class="num mid">75</td><td>автозаполнение документов</td><td class="num mid">1 001</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Действие:</strong> начать с этих пяти. Любой другой продукт требует либо мощных тендерных продаж, либо безнадёжной SEO-битвы с Минстроем.</div>
+      </div>
+
+      <!-- Insight 3 -->
+      <div class="insight cyan">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #3</div>
+          <div class="insight-title">Нейминг даёт 20× в трафике</div>
+        </div>
+        <div class="insight-body">
+          Один и тот же продукт под разным названием получает кардинально разный поисковый отклик. Технические термины («RAG», «суммаризация», «извлечение») — это словарь разработчика. Покупатели формулируют боль иначе.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Технический термин</th><th class="num">Поиск</th><th>Покупательский термин</th><th class="num">Поиск</th><th class="num">×</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>суммаризация документов</td><td class="num low">49</td><td>автозаполнение документов</td><td class="num big">1 001</td><td class="num mult">20×</td></tr>
+              <tr><td>извлечение требований из документа</td><td class="num low">9</td><td>анализ НПА</td><td class="num big">772</td><td class="num mult">86×</td></tr>
+              <tr><td>генерация сметы</td><td class="num low">34</td><td>составить смету онлайн</td><td class="num big">872</td><td class="num mult">26×</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Правило:</strong> до запуска лендинга проверить Wordstat и переименовать продукт под формулировку покупателя. Это единственное «бесплатное» 20× в маркетинге.</div>
+      </div>
+
+      <!-- Insight 4 -->
+      <div class="insight gold">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #4</div>
+          <div class="insight-title">Сметный ПО — только 4% сметного рынка</div>
+        </div>
+        <div class="insight-body">
+          Из 200 сметных тендеров на 22 млрд руб только 0.8 млрд (4%) — это ПО. Остальные 96% — услуги составления, проверки, экспертизы и проектирования. Рынок ПО занят: Гранд-Смета (бренд 111 тыс/мес) и Адепт:Смета прочно укоренились.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Сегмент</th><th class="num">Тендеры</th><th class="num">Бюджет</th><th class="num">Доля</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>PSD (проектно-сметная документация)</td><td class="num">68</td><td class="num">6.7B</td><td class="num">30%</td></tr>
+              <tr><td>Проверка / экспертиза</td><td class="num">61</td><td class="num">6.2B</td><td class="num">28%</td></tr>
+              <tr><td>Нормативы</td><td class="num">30</td><td class="num">4.1B</td><td class="num">19%</td></tr>
+              <tr><td>Составление смет (услуга)</td><td class="num">33</td><td class="num">3.2B</td><td class="num">15%</td></tr>
+              <tr><td><strong>Сметное ПО</strong></td><td class="num"><strong>27</strong></td><td class="num"><strong>0.8B</strong></td><td class="num"><strong>4%</strong></td></tr>
+              <tr><td>BIM-смета</td><td class="num">3</td><td class="num">0.05B</td><td class="num">0.2%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Стратегия:</strong> MVP должен быть AI-сервисом или надстройкой к существующему ПО (Гранд-Смета, 1С), а не конкурентом. Самые большие деньги — в проверке и проектировании, не в самом «генераторе сметы».</div>
+      </div>
+
+      <!-- Insight 5 -->
+      <div class="insight">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #5</div>
+          <div class="insight-title">«Проверка сметы» — недооценённый flagship</div>
+        </div>
+        <div class="insight-body">
+          Это единственный сметный модуль, который выигрывает по всем метрикам сразу: тендерный объём, поисковый спрос, техническая простота, отсутствие прямого конкурента, переиспользование стека MVP.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Параметр</th><th>Проверка сметы</th><th>Генерация сметы</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Тендеры/мес</td><td class="num big">61</td><td class="num mid">27</td></tr>
+              <tr><td>Бюджет тендеров</td><td class="num big">6.2 млрд</td><td class="num low">0.8 млрд</td></tr>
+              <tr><td>Поиск/мес (топ-запрос)</td><td class="num big">17 500</td><td class="num mid">2 843</td></tr>
+              <tr><td>Конкуренция в ПО</td><td>низкая</td><td>высокая (Гранд-Смета)</td></tr>
+              <tr><td>Технические требования</td><td>правила + LLM</td><td>правила + LLM + UI ввода</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Гипотеза:</strong> запустить «Проверка сметы» как standalone-продукт ДО или параллельно с генеративным MVP. Продаётся существующим клиентам Гранд-Сметы как «второе мнение». Та же команда, тот же стек, тот же набор нормативов ГЭСН/ФЕР.</div>
+      </div>
+
+      <!-- Insight 6 -->
+      <div class="insight cyan">
+        <div class="insight-head">
+          <div class="insight-num">ИНСАЙТ #6</div>
+          <div class="insight-title">Модель «1 продукт × N регионов» работает в B2G</div>
+        </div>
+        <div class="insight-body">
+          В тендерных данных видны прецеденты, когда один и тот же продукт продаётся в десятки регионов. Это даёт 5–20× мультипликатор без переработки кода — только локализация контента и интеграция.
+        </div>
+        <div class="compare">
+          <table>
+            <thead>
+              <tr><th>Продукт</th><th>Сегмент</th><th>География</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Webiomed</td><td>Медицинский AI</td><td>20+ регионов</td></tr>
+              <tr><td>Робот Диспетчер ЖКХ</td><td>Обращения граждан</td><td>Уфа, Башкортостан, Татарстан, МО</td></tr>
+              <tr><td>Контент-анализ для МЦУР</td><td>Аналитика регионов</td><td>Одинцово + аналоги в других областях</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="takeaway"><strong>Расчёт рынка:</strong> 85 регионов × 3–5 муниципалитетов = 250–400 потенциальных клиентов на один типовой продукт. Идеально подходит для модулей B (классификация обращений, chatbot, мониторинг НПА).</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PRIORITIES -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">Часть 2</div>
+      <h2 class="section-title">Матрица приоритетов</h2>
+      <p class="section-sub">Все рассмотренные продукты, разложенные по 4 уровням готовности.</p>
+    </div>
+
+    <div class="levels">
+
+      <div class="level level1">
+        <div class="level-head">
+          <div class="level-title">
+            <div class="level-badge">1</div>
+            <div>
+              <div class="level-name">Запускать сейчас</div>
+              <div class="level-sub">Двойной канал, низкий риск, понятная команда</div>
+            </div>
+          </div>
+          <div class="level-when">0–30 дней</div>
+        </div>
+        <div class="products">
+          <div class="product">
+            <div>
+              <div class="product-name">Проверка сметы как standalone</div>
+              <div class="product-why">Сильнейший сметный канал, недооценённый рынком</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">61</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">17 500</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">Автоматическая смета (MVP)</div>
+              <div class="product-why">Главная гипотеза, фокус на B2C/SMB через SEO</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">27</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">2 843</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level level2">
+        <div class="level-head">
+          <div class="level-title">
+            <div class="level-badge">2</div>
+            <div>
+              <div class="level-name">Запускать после первых платящих</div>
+              <div class="level-sub">Двойной канал, но требует расширения команды</div>
+            </div>
+          </div>
+          <div class="level-when">30–90 дней</div>
+        </div>
+        <div class="products">
+          <div class="product">
+            <div>
+              <div class="product-name">Классификация обращений</div>
+              <div class="product-why">Самый большой тендерный пул в Группе B</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">142</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">2 395</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">Мониторинг НПА + алерт</div>
+              <div class="product-why">Технически простой, аудитория — юристы</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">38</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">1 400</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">Автозаполнение документов</div>
+              <div class="product-why">Понятный термин, прямая ценность</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">75</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">1 001</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level level3">
+        <div class="level-head">
+          <div class="level-title">
+            <div class="level-badge">3</div>
+            <div>
+              <div class="level-name">Только если есть продажная команда</div>
+              <div class="level-sub">Тендерный рынок есть, но SEO не работает</div>
+            </div>
+          </div>
+          <div class="level-when">90+ дней</div>
+        </div>
+        <div class="products">
+          <div class="product">
+            <div>
+              <div class="product-name">Chatbot для муниципалитетов</div>
+              <div class="product-why">Только тендеры + прямые продажи</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">71</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">12</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">OCR извлечение для проектировщиков</div>
+              <div class="product-why">Только демо + конференции</div>
+            </div>
+            <div class="product-stat"><span class="label">тендеров</span><span class="value">46</span></div>
+            <div class="product-stat"><span class="label">поиск/мес</span><span class="value">&lt;10</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level level4">
+        <div class="level-head">
+          <div class="level-title">
+            <div class="level-badge">4</div>
+            <div>
+              <div class="level-name">Отложить</div>
+              <div class="level-sub">Барьеры входа или длинный цикл сделки</div>
+            </div>
+          </div>
+          <div class="level-when">Не сейчас</div>
+        </div>
+        <div class="products">
+          <div class="product">
+            <div>
+              <div class="product-name">Корпоративный RAG/LLM on-premise</div>
+              <div class="product-why">Длинный цикл сделки, аттестация ФСТЭК</div>
+            </div>
+            <div class="product-stat"><span class="label">чек</span><span class="value">100M+</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">Медицинский AI support</div>
+              <div class="product-why">Регистрационное удостоверение Росздравнадзора</div>
+            </div>
+            <div class="product-stat"><span class="label">барьер</span><span class="value">12+ мес</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">Конкурировать с Гранд-Сметой</div>
+              <div class="product-why">Бренд занят, рынок зрелый, network effects</div>
+            </div>
+            <div class="product-stat"><span class="label">бренд</span><span class="value">111k/мес</span></div>
+          </div>
+          <div class="product">
+            <div>
+              <div class="product-name">SEO на «ГЭСН» / «ФЕРы»</div>
+              <div class="product-why">Информационный трафик, не покупатели</div>
+            </div>
+            <div class="product-stat"><span class="label">конверсия</span><span class="value">~0</span></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ACTION PLAN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">Часть 3</div>
+      <h2 class="section-title">План на 30 дней</h2>
+      <p class="section-sub">Конкретные действия для проверки главной гипотезы.</p>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-list">
+        <div class="step">
+          <div class="step-circle">1</div>
+          <div class="step-content">
+            <div class="step-title">Запустить лендинг «Проверка сметы»</div>
+            <div class="step-desc">Под запрос «проверка сметы» (6 519/мес). Минимум: hero + 3 кейса + форма загрузки сметы для проверки.</div>
+            <div class="step-tag">Дни 1–7 · SEO + контекст</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-circle">2</div>
+          <div class="step-content">
+            <div class="step-title">Переименовать MVP в «Автоматическая смета»</div>
+            <div class="step-desc">Заменить «генерация сметы» (34/мес) на «автоматическая смета» (2 843/мес) во всех материалах. 26× рост охвата без изменений в коде.</div>
+            <div class="step-tag">День 8 · бесплатно</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-circle">3</div>
+          <div class="step-content">
+            <div class="step-title">Подать заявку на 2–3 тендера smeta_control</div>
+            <div class="step-desc">61 тендер на 6.2 млрд руб открыт. Даже мелкие региональные контракты дают денежный поток и кейсы.</div>
+            <div class="step-tag">Дни 9–20 · параллельно</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-circle">4</div>
+          <div class="step-content">
+            <div class="step-title">SEO-статья «Как проверить смету в 2026»</div>
+            <div class="step-desc">Чек-лист + автоматический инструмент. Тянет органику с 17 500/мес и закрывает связанные запросы (экспертиза, проверка ГЭСН).</div>
+            <div class="step-tag">Дни 15–25 · контент</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-circle">5</div>
+          <div class="step-content">
+            <div class="step-title">Замер: какой канал дал больше платящих</div>
+            <div class="step-desc">SEO vs тендеры. Это определит фокус следующего квартала и приоритеты найма (маркетолог vs тендерный менеджер).</div>
+            <div class="step-tag">День 30 · решение</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANTIPATTERNS -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num">Часть 4</div>
+      <h2 class="section-title">Чего не делать</h2>
+      <p class="section-sub">Антипаттерны, которые видны в данных и проверены на провалах других.</p>
+    </div>
+
+    <div class="antipatterns">
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Делать «универсальный AI для всего».</strong> Без вертикали продукт превращается в сервисную разработку. Корпус показывает: выигрывают узкие нишевые решения.</div>
+      </div>
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Называть продукты по технологии</strong> («RAG ассистент», «суммаризатор», «генератор смет»). Никто не ищет такие термины. См. Инсайт #3 — 20× потеря трафика.</div>
+      </div>
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Воевать с лидерами рынка.</strong> Гранд-Смета, КонсультантПлюс, Минстрой имеют сетевые эффекты и брендовый трафик. Лучше быть надстройкой или дополнением.</div>
+      </div>
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Идти в медицинский AI без партнёра.</strong> Регистрационные удостоверения Росздравнадзора съедают 6–12 месяцев и кэш. Только через стратегическое партнёрство с клиникой.</div>
+      </div>
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Строить SEO на справочных терминах</strong> («ГЭСН», «ФЕРы»). Высокий трафик ≠ покупатели. Минстрой и КонсультантПлюс заберут весь органик.</div>
+      </div>
+      <div class="antipattern">
+        <div class="antipattern-text"><strong>Запускать продукт без проверки Wordstat.</strong> Каждый запуск без замера трафика по нескольким формулировкам — это потенциальная 20× ошибка в нейминге.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <span>Источники: TenderGuru API · Yandex Wordstat (Playwright MCP) · 7 предыдущих исследований</span>
+    <span>Полные данные: <a href="FINAL-SYNTHESIS.md">FINAL-SYNTHESIS.md</a> · <a href="wordstat-report.html">wordstat-report.html</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

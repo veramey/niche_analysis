@@ -61,7 +61,6 @@ Generated from extracted TenderGuru documents for 2026-05-25.
 - analytics_monitoring: 19
 - process_automation: 2
 - gov_regulatory_analytics: 24
-- software_services: 6
+- software_services: 4
 - enterprise_rag_llm_assistant: 13
 - voice_assistant_healthcare: 1
-- ai_software_services: 1
