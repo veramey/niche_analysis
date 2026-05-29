@@ -211,7 +211,10 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 .strategy-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .strategy-body { font-size: 12px; color: var(--muted2); line-height: 1.6; }
 .summary-note { font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-top: 14px; line-height: 1.6; }
+.export-btn { font-size: 11px; color: var(--green); cursor: pointer; padding: 3px 10px; border-radius: 5px; border: 1px solid rgba(52,211,153,.3); background: rgba(52,211,153,.06); user-select: none; white-space: nowrap; }
+.export-btn:hover { background: rgba(52,211,153,.12); border-color: rgba(52,211,153,.5); }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="topbar">
@@ -288,6 +291,7 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
   <div class="content" style="overflow:hidden;display:flex;flex-direction:column;flex:1;">
     <div class="toolbar">
       <span class="filter-reset hidden" id="resetFilters" title="Сбросить все фильтры">Сбросить фильтры</span>
+      <span class="export-btn" id="exportBtn" onclick="exportToExcel()" title="Экспортировать отфильтрованные тендеры в Excel">↓ Excel</span>
       <span class="result-count" id="resultCount">—</span>
     </div>
     <div class="table-wrap">
@@ -623,6 +627,7 @@ function setupListeners() {
 
 async function openPanel(tenderId) {
   const t = all.find(x => x.tender_id === tenderId);
+  const cardIds = [...new Set([tenderId, t?.tenderguru_card_id].filter(Boolean))];
   document.getElementById('panelTitle').textContent = t?.opportunity_title || t?.tender_name || tenderId;
   document.getElementById('panelBody').innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">Загрузка…</div>';
   document.getElementById('overlay').classList.add('open');
@@ -635,7 +640,7 @@ async function openPanel(tenderId) {
 
   if (t?.has_card) {
     try {
-      const md = await fetch(`data/cards/${encodeURIComponent(tenderId)}.md`).then(r => r.text());
+      const md = await fetchCardMd(cardIds);
       document.getElementById('panelBody').innerHTML = renderMetaBox(t) + (links.length ? `<div class="links-row">${links.join('')}</div>` : '') + renderMd(md);
     } catch {
       document.getElementById('panelBody').innerHTML = renderMetaBox(t) + '<div class="no-card-notice">Карточка не найдена</div>';
@@ -646,6 +651,14 @@ async function openPanel(tenderId) {
     const infoEl = document.querySelector('#panelBody .info-html[data-html]');
     if (infoEl && t.info_text) infoEl.innerHTML = sanitizeHtml(decodeEntities(t.info_text));
   }
+}
+
+async function fetchCardMd(cardIds) {
+  for (const cardId of cardIds) {
+    const res = await fetch(`data/cards/${encodeURIComponent(cardId)}.md`);
+    if (res.ok) return res.text();
+  }
+  throw new Error('Card not found');
 }
 
 function renderMetaBox(t) {
@@ -750,6 +763,83 @@ function sanitizeHtml(raw) {
 function closePanel() {
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('panel').classList.remove('open');
+}
+
+function stripHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function joinVal(val) {
+  if (!val) return '';
+  if (Array.isArray(val)) return val.join('; ');
+  return String(val);
+}
+
+function exportToExcel() {
+  if (!filtered.length) return;
+  const btn = document.getElementById('exportBtn');
+  btn.textContent = '…';
+
+  const rows = filtered.map(t => ({
+    'ID тендера': t.tender_id || '',
+    'Номер тендера': t.tender_num || '',
+    'Название': t.tender_name || '',
+    'Заголовок (AI)': t.opportunity_title || '',
+    'Бюджет (руб)': Number(t.budget_rub) || '',
+    'ФЗ': t.fz || '',
+    'Тип тендера': t.tender_type || '',
+    'ЭТП': t.etp || '',
+    'Дата размещения': t.date || '',
+    'Срок подачи': t.end_time || t.request_end_date || '',
+    'Дата торгов': t.bidding_date || '',
+    'Заказчик': t.customer || '',
+    'ИНН заказчика': t.customer_inn || '',
+    'Контакт (имя)': t.contact_name || '',
+    'Email': t.contact_email || '',
+    'Телефон': t.contact_phone || '',
+    'Регион': t.region || '',
+    'Место поставки': t.delivery_place || '',
+    'Срок поставки': t.delivery_term || '',
+    'МСП': t.smp || '',
+    'Сфера': t.sphere_label || t.sphere || '',
+    'Ниша': NICHE_LABELS[t.niche] || t.niche || '',
+    'Категория продукта': CAT_LABELS[t.product_category] || t.product_category || '',
+    'Повторяемость': t.reuse_score || '',
+    'Сложность': t.complexity || '',
+    'Оценка релевантности': t.relevance_score || '',
+    'Ссылка ЕИС': t.eis_link || '',
+    'Ссылка TenderGuru': t.tenderguru_link || '',
+    'Ссылка ЭТП': (t.etp_link && t.etp_link.startsWith('http') ? t.etp_link : '') || '',
+    'Ссылка Заказ': (t.zakaz_link && t.zakaz_link.startsWith('http') ? t.zakaz_link : '') || '',
+    'Проблема': t.problem || '',
+    'Запрошенное решение': t.requested_solution || '',
+    'AI термины': joinVal(t.ai_terms),
+    'Модули': joinVal(t.modules),
+    'Сценарии': joinVal(t.scenarios),
+    'Интеграции': joinVal(t.integrations),
+    'Ограничения': joinVal(t.constraints),
+    'MVP возможность': t.mvp_opportunity || '',
+    'Целевые покупатели': joinVal(t.target_buyers),
+    'Ключевые слова': t.matched_terms || '',
+    'Причина отбора': t.reason || '',
+    'Кол-во документов': t.docs_count || '',
+    'Статус документов': t.docs_status || '',
+    'Описание': stripHtml(t.info_text),
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Тендеры');
+
+  const maxW = 60;
+  ws['!cols'] = Object.keys(rows[0]).map(k => ({
+    wch: Math.min(Math.max(k.length, ...rows.map(r => String(r[k] || '').length)), maxW),
+  }));
+
+  const date = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `tenders_${date}.xlsx`);
+  btn.textContent = '↓ Excel';
 }
 
 init().catch(console.error);
