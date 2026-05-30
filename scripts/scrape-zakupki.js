@@ -1,213 +1,176 @@
 #!/usr/bin/env node
 /**
  * Scrapes zakupki.gov.ru for all tenders matching "искусственный интеллект"
- * published in the last year. Uses Firefox via Playwright + SOCKS5 proxy from .env.
+ * published in the last year. Two passes: by name/description + by attached files.
+ * Firefox via Playwright + SOCKS5 relay (no auth locally).
  *
  * Usage:
  *   node scripts/scrape-zakupki.js
- *   node scripts/scrape-zakupki.js --date-from=2025-05-29 --date-to=2026-05-29
- *   node scripts/scrape-zakupki.js --headless=false   # watch the browser
+ *   node scripts/scrape-zakupki.js --date-from=29.05.2025 --date-to=29.05.2026
+ *   node scripts/scrape-zakupki.js --headless=false
  */
-import { chromium } from 'playwright';
+import { firefox } from 'playwright';
 import { loadDotEnv } from '../src/env.js';
 import { ensureDir, writeCsv, writeJsonl } from '../src/export-utils.js';
+import { startRelay } from '../src/socks5-relay.js';
 
 loadDotEnv();
 
-const DATE_FROM  = getArg('date-from',  '29.05.2025');   // DD.MM.YYYY
-const DATE_TO    = getArg('date-to',    '29.05.2026');
-const HEADLESS   = getArg('headless',   'true') !== 'false';
-const KEYWORD    = 'искусственный интеллект';
-const OUT_DATE   = '2026-05-29';
-const PER_PAGE   = 50;
+const DATE_FROM     = getArg('date-from', '29.05.2025');
+const DATE_TO       = getArg('date-to',   '29.05.2026');
+const HEADLESS      = getArg('headless',  'true') !== 'false';
+const KEYWORD       = 'искусственный интеллект';
+const OUT_DATE      = '2026-05-29';
+const PER_PAGE      = 50;
+const RETRY_MAX     = 3;
+const PAGE_DELAY_MS = 2000;
+
 
 const processedDir = `data/processed/${OUT_DATE}`;
-const rawDir       = `data/raw/tenderguru/${OUT_DATE}`;
 ensureDir(processedDir);
-ensureDir(rawDir);
+ensureDir(`data/raw/tenderguru/${OUT_DATE}`);
 
 const outJsonl = `${processedDir}/zakupki-ai-year.jsonl`;
 const outCsv   = `${processedDir}/zakupki-ai-year.csv`;
 
-// Parse proxy from ALL_PROXY env  (socks5h://user:pass@host:port)
-const proxyEnv = process.env.ALL_PROXY || '';
-const proxyMatch = proxyEnv.match(/socks5h?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)/);
-const proxy = proxyMatch ? {
-  server:   `socks5://${proxyMatch[3]}:${proxyMatch[4]}`,
-  username: proxyMatch[1],
-  password: proxyMatch[2],
-} : undefined;
+// ── proxy setup ───────────────────────────────────────────────────────────────
 
-if (proxy) {
-  console.log(`Proxy: ${proxy.server}  user=${proxy.username}`);
+const pm = (process.env.ALL_PROXY || '').match(/socks5h?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)/);
+let relay = null;
+let launchProxy;
+
+if (pm) {
+  relay = await startRelay(pm[1], pm[2], pm[3], Number(pm[4]));
+  launchProxy = { server: `socks5://localhost:${relay.port}` };
+  console.log(`Proxy relay: localhost:${relay.port} → ${pm[3]}:${pm[4]}`);
 } else {
-  console.warn('No proxy found in ALL_PROXY — connecting directly');
+  console.warn('No ALL_PROXY found — connecting directly');
 }
 
-const browser = await chromium.launch({
-  headless: HEADLESS,
-  proxy,
-});
+// ── browser ───────────────────────────────────────────────────────────────────
 
-const context = await browser.newContext({
-  locale:    'ru-RU',
-  timezoneId: 'Europe/Moscow',
-  userAgent:  'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
-});
+const browser = await firefox.launch({ headless: HEADLESS, proxy: launchProxy });
+const page    = await browser.newPage();
+page.setDefaultTimeout(30_000);
 
-const page = await context.newPage();
+// ── scrape ────────────────────────────────────────────────────────────────────
 
-// Build initial search URL
-const searchUrl = buildSearchUrl(1);
-console.log(`\nOpening: ${searchUrl}\n`);
+console.log(`\nKeyword: "${KEYWORD}"   ${DATE_FROM} → ${DATE_TO}\n`);
 
-await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+await page.goto(buildUrl(1), { waitUntil: 'domcontentloaded', timeout: 60_000 });
+await page.waitForTimeout(2000);
 
-// Check for captcha / access block
-const title = await page.title();
-console.log(`Page title: ${title}`);
+const totalText  = await page.locator('[class*="total"]').first().textContent().catch(() => '');
+const totalMatch = totalText.match(/(\d[\d\s]*)/);
+const totalCount = totalMatch ? Number(totalMatch[1].replace(/\s/g, '')) : 0;
+const totalPages = totalCount ? Math.ceil(totalCount / PER_PAGE) : 999;
+console.log(`Total: ${totalCount}  (${totalPages} pages)\n`);
 
-if (title.toLowerCase().includes('captcha') || title.toLowerCase().includes('blocked')) {
-  console.error('Access blocked or CAPTCHA detected. Try --headless=false to solve manually.');
-  await browser.close();
-  process.exit(1);
-}
+const allRows = [];
+writeJsonl(outJsonl, []);
 
-// Determine total pages
-let totalCount = 0;
-let totalPages = 1;
+for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+  let rows = [];
 
-try {
-  // zakupki.gov.ru shows total count like "Найдено: 641"
-  const countEl = await page.locator('.search-results__state').first().textContent({ timeout: 15_000 }).catch(() => '');
-  const countMatch = countEl.match(/[\d\s]+/);
-  if (countMatch) {
-    totalCount = Number(countMatch[0].replace(/\s/g, ''));
-    totalPages = Math.ceil(totalCount / PER_PAGE);
-    console.log(`Total results: ${totalCount}  (${totalPages} pages)`);
+  for (let attempt = 1; attempt <= RETRY_MAX; attempt++) {
+    try {
+      if (pageNum > 1 || attempt > 1) {
+        await page.goto(buildUrl(pageNum), { waitUntil: 'domcontentloaded', timeout: 90_000 });
+        await page.waitForTimeout(PAGE_DELAY_MS + Math.random() * 1000);
+      }
+      await page.waitForSelector('.search-registry-entry-block', { timeout: 25_000 }).catch(() => null);
+      rows = await scrapePage(page, { pageNum });
+      break;
+    } catch (err) {
+      console.warn(`\n  page ${pageNum} attempt ${attempt} failed: ${err.message.split('\n')[0]}`);
+      if (attempt < RETRY_MAX) await page.waitForTimeout(5000 * attempt);
+    }
   }
-} catch {
-  console.log('Could not read total count, will scrape until no results');
-}
-
-const allTenders = [];
-
-for (let pageNum = 1; pageNum <= Math.max(totalPages, 1); pageNum++) {
-  if (pageNum > 1) {
-    const url = buildSearchUrl(pageNum);
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForTimeout(1000 + Math.random() * 800);
-  }
-
-  const rows = await scrapePage(page, pageNum);
 
   if (rows.length === 0) {
-    console.log(`\nNo rows on page ${pageNum}, stopping.`);
+    console.log(`\nPage ${pageNum}: no cards — stopping`);
     break;
   }
 
-  allTenders.push(...rows);
-  process.stdout.write(`\rPage ${pageNum}/${totalPages}  collected: ${allTenders.length}   `);
+  allRows.push(...rows);
+  writeJsonl(outJsonl, allRows);
+  process.stdout.write(`\rPage ${pageNum}/${totalPages}   collected: ${allRows.length}   `);
 }
 
-console.log(`\n\nDone. Unique tenders scraped: ${allTenders.length}`);
+// ── final output ──────────────────────────────────────────────────────────────
 
-writeJsonl(outJsonl, allTenders);
-writeCsv(outCsv, allTenders);
+const finalRows = allRows;
+console.log(`\nDone. Total: ${finalRows.length}`);
+
+writeJsonl(outJsonl, finalRows);
+writeCsv(outCsv, finalRows);
 console.log(`Wrote ${outJsonl}`);
 console.log(`Wrote ${outCsv}`);
 
 await browser.close();
+if (relay) relay.stop();
 
-// ── page scraper ─────────────────────────────────────────────────────────────
+// ── card scraper ──────────────────────────────────────────────────────────────
 
-async function scrapePage(page, pageNum) {
-  const rows = [];
+async function scrapePage(page, { pageNum }) {
+  return page.evaluate(({ pn }) => {
+    const rows = [];
 
-  // Wait for result cards to appear
-  await page.waitForSelector('.search-registry-entry-block, .registry-entry__body', {
-    timeout: 20_000,
-  }).catch(() => null);
+    for (const card of document.querySelectorAll('.search-registry-entry-block')) {
+      try {
+        const t = (sel) => card.querySelector(sel)?.textContent?.replace(/\s+/g, ' ')?.trim() || '';
 
-  const cards = await page.$$('.search-registry-entry-block');
-
-  for (const card of cards) {
-    try {
-      const tender = await card.evaluate((el) => {
-        const text = (sel) => el.querySelector(sel)?.textContent?.trim() || '';
-        const href = (sel) => el.querySelector(sel)?.href || '';
-
-        // tender number + link
-        const numEl = el.querySelector('.registry-entry__header-mid__number a, .tender-identifier a');
-        const tenderNum = numEl?.textContent?.trim() || '';
+        const fz        = t('.registry-entry__header-top__title').split('\n')[0].trim();
+        const numEl     = card.querySelector('.registry-entry__header-mid__number a');
+        const tenderNum = numEl?.textContent?.replace(/[^\d]/g, '') || '';
         const tenderLink = numEl?.href || '';
+        const status    = t('.registry-entry__header-mid__title');
+        const name      = t('.registry-entry__body-value');
+        const customer  = t('.registry-entry__body-href a') || t('.registry-entry__body-href');
+        const price     = t('.price-block__value')
+          .replace(/ /g, '').replace(/\s/g, '').replace('₽', '').replace(',', '.').trim();
 
-        // name
-        const name = text('.registry-entry__body-value') ||
-                     text('.registry-entry__body-title') || '';
+        const dataTitles = [...card.querySelectorAll('.data-block__title')].map(e => e.textContent.trim());
+        const dataValues = [...card.querySelectorAll('.data-block__value')].map(e => e.textContent.trim());
 
-        // customer
-        const customer = text('.registry-entry__body-href') ||
-                         text('.customer-name') || '';
+        let publishDate = '', deadline = '';
+        dataTitles.forEach((title, i) => {
+          const v = dataValues[i] || '';
+          if (title.includes('Размещено')) publishDate = v;
+          if (title.includes('Окончание') || title.includes('подачи')) deadline = v;
+        });
 
-        // price
-        const price = text('.price-block__value, .registry-entry__header-price') || '';
-
-        // dates
-        const dates = [...el.querySelectorAll('.data-block__value')]
-          .map(e => e.textContent.trim());
-
-        // fz type (44-ФЗ / 223-ФЗ etc.)
-        const fz = text('.registry-entry__header-top__title') || '';
-
-        // status
-        const status = text('.registry-entry__header-mid__title') ||
-                       text('.badge') || '';
-
-        return { tenderNum, tenderLink, name, customer, price, dates, fz, status };
-      });
-
-      rows.push({
-        page: pageNum,
-        tender_num: tender.tenderNum,
-        name: tender.name,
-        customer: tender.customer,
-        price: tender.price,
-        fz: tender.fz,
-        status: tender.status,
-        dates: tender.dates.join(' | '),
-        tender_link: tender.tenderLink,
-      });
-    } catch {
-      // skip malformed card
+        rows.push({ page: pn, fz, tender_num: tenderNum, status, name, customer, price_rub: price, publish_date: publishDate, deadline, tender_link: tenderLink });
+      } catch { /* skip malformed */ }
     }
-  }
 
-  return rows;
+    return rows;
+  }, { pn: pageNum });
 }
 
 // ── URL builder ───────────────────────────────────────────────────────────────
 
-function buildSearchUrl(pageNum) {
-  const params = new URLSearchParams({
-    searchString: KEYWORD,
-    morphology: 'on',
-    'search-filter': 'Дата размещения',
-    pageNumber: String(pageNum),
-    sortDirection: 'false',
-    recordsPerPage: `_${PER_PAGE}`,
-    showLotsInfoOnly: 'false',
-    sortBy: 'UPDATE_DATE',
-    fz44: 'on',
-    fz223: 'on',
-    pc: 'on',
-    fz615: 'on',
-    currencyIdGeneral: '-1',
-    publishDateFrom: DATE_FROM,
-    publishDateTo: DATE_TO,
+function buildUrl(pageNum) {
+  const p = new URLSearchParams({
+    searchString:              KEYWORD,
+    morphology:                'on',
+    sortBy:                    'UPDATE_DATE',
+    pageNumber:                String(pageNum),
+    sortDirection:             'false',
+    recordsPerPage:            `_${PER_PAGE}`,
+    showLotsInfoHidden:        'false',
+    fz44:                      'on',
+    fz223:                     'on',
+    af:                        'on',
+    ca:                        'on',
+    pc:                        'on',
+    pa:                        'on',
+    currencyIdGeneral:         '-1',
+    searchTextInAttachedFile:  KEYWORD,
+    publishDateFrom:           DATE_FROM,
+    publishDateTo:             DATE_TO,
   });
-
-  return `https://zakupki.gov.ru/epz/order/extendedsearch/results.html?${params}`;
+  return `https://zakupki.gov.ru/epz/order/extendedsearch/results.html?${p}`;
 }
 
 function getArg(name, fallback) {

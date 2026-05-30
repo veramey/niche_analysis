@@ -261,6 +261,10 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
         <span>ЕИС</span>
         <label class="toggle"><input type="checkbox" id="eisOnly"><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <span>Только zakupki.gov.ru</span>
+        <label class="toggle"><input type="checkbox" id="sourceEisOnly"><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -353,7 +357,7 @@ const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', comp
 const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис' };
 
 let all = [], filtered = [];
-let activeSphere = '', activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+let activeSphere = '', activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, onlySourceEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
 let columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
 
 const hasEis = t => Boolean(t.eis_link || (t.tender_link && t.tender_link !== '-' && t.tender_link.startsWith('http')));
@@ -414,7 +418,7 @@ function populateColumnSelects() {
 
 function updateResetVisibility() {
   const anyCol = Object.values(columnFilters).some(v => (v || '').trim());
-  const any = anyCol || activeSphere || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || search;
+  const any = anyCol || activeSphere || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || onlySourceEis || search;
   document.getElementById('resetFilters').classList.toggle('hidden', !any);
 }
 
@@ -422,10 +426,11 @@ function resetAllFilters() {
   columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
   document.querySelectorAll('.col-filter').forEach(el => { el.value = ''; });
   activeSphere = ''; activeNiche = ''; activeCat = ''; activeReuse = '';
-  onlyAnalyzed = false; onlyEis = false; search = '';
+  onlyAnalyzed = false; onlyEis = false; onlySourceEis = false; search = '';
   document.getElementById('searchInput').value = '';
   document.getElementById('analyzedOnly').checked = false;
   document.getElementById('eisOnly').checked = false;
+  document.getElementById('sourceEisOnly').checked = false;
   document.querySelectorAll('[data-type="sphere"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   document.querySelectorAll('[data-type="reuse"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   applyFilters();
@@ -458,6 +463,7 @@ function buildSidebarFilters() {
   let base = all;
   if (onlyAnalyzed) base = base.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) base = base.filter(hasEis);
+  if (onlySourceEis) base = base.filter(t => t.source === 'eis');
   const sphereCounts = countBy(base, 'sphere_label');
   const nicheCounts = countBy(base, 'niche');
   const catCounts = countBy(base.filter(t => t.product_category), 'product_category');
@@ -493,6 +499,7 @@ function applyFilters() {
   let list = all.slice();
   if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) list = list.filter(hasEis);
+  if (onlySourceEis) list = list.filter(t => t.source === 'eis');
   if (activeSphere) list = list.filter(t => t.sphere_label === activeSphere);
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
   if (activeCat) list = list.filter(t => t.product_category === activeCat);
@@ -593,6 +600,7 @@ function setupListeners() {
   });
   document.getElementById('analyzedOnly').addEventListener('change', e => { onlyAnalyzed = e.target.checked; applyFilters(); });
   document.getElementById('eisOnly').addEventListener('change', e => { onlyEis = e.target.checked; applyFilters(); });
+  document.getElementById('sourceEisOnly').addEventListener('change', e => { onlySourceEis = e.target.checked; applyFilters(); });
   document.getElementById('resetFilters').addEventListener('click', resetAllFilters);
 
   document.querySelectorAll('.col-filter').forEach(el => {
@@ -748,6 +756,7 @@ function renderMd(md) {
     .replace(/(<li>[^]*?<\/li>\n?)+/g, s => `<ul>${s}</ul>`)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--accent)">$1 ↗</a>')
     .replace(/\n\n+/g, '</p><p>');
   return `<div class="md"><p>${html}</p></div>`;
 }

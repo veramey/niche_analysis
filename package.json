@@ -16,7 +16,8 @@
     "patch-cards": "node scripts/patch-cards-add-info.js",
     "classify-spheres": "node scripts/classify-tender-spheres-llm.js",
     "build": "node scripts/build-static.js",
-    "fetch-missing-docs": "node scripts/fetch-missing-docs.js"
+    "fetch-missing-docs": "node scripts/fetch-missing-docs.js",
+    "discover-edo-ai": "node scripts/discover-zakupki-edo-ai.js"
   },
   "engines": {
     "node": ">=18"
