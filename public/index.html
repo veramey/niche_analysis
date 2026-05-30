@@ -265,6 +265,14 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
         <span>Только zakupki.gov.ru</span>
         <label class="toggle"><input type="checkbox" id="sourceEisOnly"><span class="toggle-slider"></span></label>
       </div>
+      <div class="toggle-row">
+        <span>ЭДО</span>
+        <label class="toggle"><input type="checkbox" id="edoOnly"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>DocAI 6м</span>
+        <label class="toggle"><input type="checkbox" id="docaiOnly"><span class="toggle-slider"></span></label>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -353,14 +361,17 @@ tbody td { padding: 8px 10px; vertical-align: middle; }
 
 <script>
 const SPHERE_LABELS = { healthcare:'Медицина', construction:'Строительство', transport_logistics:'Транспорт / логистика', utilities:'ЖКХ / коммунальная инфраструктура', security:'Безопасность', education_science:'Образование / наука', industry_energy:'Промышленность / энергетика', finance_insurance:'Финансы / страхование', retail_commerce:'Ритейл / коммерция', telecom_media:'Телеком / медиа / связь', culture_sport:'Культура / спорт / туризм', agriculture_ecology:'АПК / экология', social_services:'Социальная поддержка / занятость', public_admin:'Госуправление', it_internal:'Внутренняя ИТ-автоматизация', other:'Другое / неясно' };
-const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', computer_vision:'CV', process_automation:'Автоматизация', document_ai:'Document AI', analytics:'Аналитика', ml:'ML', custom_software:'Разработка ПО', aiot:'AIoT' };
-const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис' };
+const NICHE_LABELS = { ai_general:'AI общий', llm_assistant:'LLM/RAG', computer_vision:'CV', process_automation:'Автоматизация', document_ai:'Document AI', voice_assistant:'Голосовой AI', analytics:'Аналитика', ml:'ML', custom_software:'Разработка ПО', aiot:'AIoT', edo_automation:'ЭДО автоматизация', edo_platform:'ЭДО платформа' };
+const CAT_LABELS = { enterprise_rag_llm_assistant:'RAG/LLM', computer_vision:'Computer Vision', medical_ai_support:'Медицина AI', analytics_monitoring:'Аналитика', gov_regulatory_analytics:'Гос. аналитика', voice_assistant_healthcare:'Голосовой AI', software_services:'ПО/Сервис', edo_automation:'ЭДО автоматизация', edo_platform_generic:'ЭДО платформа', speech_to_text:'Speech-to-text', archive_digitization:'OCR архивов', one_c_document_recognition:'1С OCR', intelligent_document_processing:'IDP / извлечение данных', ocr_document_recognition:'OCR документов', document_ai_solution:'Document AI' };
 
 let all = [], filtered = [];
-let activeSphere = '', activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, onlySourceEis = false, search = '', sortCol = 'budget_rub', sortDir = -1;
+let activeSphere = '', activeNiche = '', activeCat = '', activeReuse = '', onlyAnalyzed = false, onlyEis = false, onlySourceEis = false, onlyEdo = false, onlyDocai = false, search = '', sortCol = 'budget_rub', sortDir = -1;
 let columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
 
 const hasEis = t => Boolean(t.eis_link || (t.tender_link && t.tender_link !== '-' && t.tender_link.startsWith('http')));
+function segmentFilter(t) {
+  return (onlyEdo && t.source_segment === 'zakupki_edo_ai') || (onlyDocai && t.source_segment === 'docai_6m');
+}
 
 const BUDGET_RANGES = {
   '0-1':    [0, 1e6],
@@ -418,7 +429,7 @@ function populateColumnSelects() {
 
 function updateResetVisibility() {
   const anyCol = Object.values(columnFilters).some(v => (v || '').trim());
-  const any = anyCol || activeSphere || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || onlySourceEis || search;
+  const any = anyCol || activeSphere || activeNiche || activeCat || activeReuse || onlyAnalyzed || onlyEis || onlySourceEis || onlyEdo || onlyDocai || search;
   document.getElementById('resetFilters').classList.toggle('hidden', !any);
 }
 
@@ -426,11 +437,13 @@ function resetAllFilters() {
   columnFilters = { budget_rub: '', region: '', sphere_label: '', niche: '', product_category: '', reuse_score: '', date: '' };
   document.querySelectorAll('.col-filter').forEach(el => { el.value = ''; });
   activeSphere = ''; activeNiche = ''; activeCat = ''; activeReuse = '';
-  onlyAnalyzed = false; onlyEis = false; onlySourceEis = false; search = '';
+  onlyAnalyzed = false; onlyEis = false; onlySourceEis = false; onlyEdo = false; onlyDocai = false; search = '';
   document.getElementById('searchInput').value = '';
   document.getElementById('analyzedOnly').checked = false;
   document.getElementById('eisOnly').checked = false;
   document.getElementById('sourceEisOnly').checked = false;
+  document.getElementById('edoOnly').checked = false;
+  document.getElementById('docaiOnly').checked = false;
   document.querySelectorAll('[data-type="sphere"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   document.querySelectorAll('[data-type="reuse"]').forEach(el => el.classList.toggle('active', el.dataset.val === ''));
   applyFilters();
@@ -464,6 +477,7 @@ function buildSidebarFilters() {
   if (onlyAnalyzed) base = base.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) base = base.filter(hasEis);
   if (onlySourceEis) base = base.filter(t => t.source === 'eis');
+  if (onlyEdo || onlyDocai) base = base.filter(segmentFilter);
   const sphereCounts = countBy(base, 'sphere_label');
   const nicheCounts = countBy(base, 'niche');
   const catCounts = countBy(base.filter(t => t.product_category), 'product_category');
@@ -500,6 +514,7 @@ function applyFilters() {
   if (onlyAnalyzed) list = list.filter(t => t.evidence_files && t.evidence_files !== 'info_text');
   if (onlyEis) list = list.filter(hasEis);
   if (onlySourceEis) list = list.filter(t => t.source === 'eis');
+  if (onlyEdo || onlyDocai) list = list.filter(segmentFilter);
   if (activeSphere) list = list.filter(t => t.sphere_label === activeSphere);
   if (activeNiche) list = list.filter(t => t.niche === activeNiche);
   if (activeCat) list = list.filter(t => t.product_category === activeCat);
@@ -601,6 +616,8 @@ function setupListeners() {
   document.getElementById('analyzedOnly').addEventListener('change', e => { onlyAnalyzed = e.target.checked; applyFilters(); });
   document.getElementById('eisOnly').addEventListener('change', e => { onlyEis = e.target.checked; applyFilters(); });
   document.getElementById('sourceEisOnly').addEventListener('change', e => { onlySourceEis = e.target.checked; applyFilters(); });
+  document.getElementById('edoOnly').addEventListener('change', e => { onlyEdo = e.target.checked; applyFilters(); });
+  document.getElementById('docaiOnly').addEventListener('change', e => { onlyDocai = e.target.checked; applyFilters(); });
   document.getElementById('resetFilters').addEventListener('click', resetAllFilters);
 
   document.querySelectorAll('.col-filter').forEach(el => {
